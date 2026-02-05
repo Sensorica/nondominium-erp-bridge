@@ -1,7 +1,7 @@
 # Documentation Index
 
 > **Nondominium-ERP Bridge Project Documentation**
-> **Last Updated**: 2026-01-27
+> **Last Updated**: 2026-02-05
 
 ---
 
@@ -68,21 +68,21 @@ PoC-specific implementation guide covering:
 │                          DOCUMENTATION                              │
 │                                                                     │
 │  ┌─────────────────────┐                                            │
-│  │    REQUIREMENTS     │ ◄── WHAT needs to be built and WHY         │
+│  │    REQUIREMENTS     │ <── WHAT needs to be built and WHY         │
 │  │  (High-Level Goals) │                                            │
 │  └──────────┬──────────┘                                            │
 │             │                                                       │
-│             │ Informs                                                │
-│             ▼                                                       │
+│             │ Informs                                               │
+│             v                                                       │
 │  ┌─────────────────────┐                                            │
-│  │   SPECIFICATIONS    │ ◄── HOW it will be built technically       │
+│  │   SPECIFICATIONS    │ <── HOW it will be built technically       │
 │  │ (Technical Details) │                                            │
 │  └──────────┬──────────┘                                            │
 │             │                                                       │
-│             │ Implements                                             │
-│             ▼                                                       │
+│             │ Implements                                            │
+│             v                                                       │
 │  ┌─────────────────────┐                                            │
-│  │   POC SPEC          │ ◄── Immediate implementation details       │
+│  │   POC SPEC          │ <── Immediate implementation details       │
 │  │ (Implementation)    │                                            │
 │  └─────────────────────┘                                            │
 │                                                                     │
@@ -98,6 +98,7 @@ PoC-specific implementation guide covering:
 | 1.0 | 2026-01-27 | Initial documentation structure | - |
 | - | - | Separated requirements from specifications | - |
 | - | - | Created dedicated PoC implementation guide | - |
+| 1.1 | 2026-02-05 | Corrected field names, zome functions, port, environment setup, and code examples to match actual Nondominium codebase and PoC scaffolding | - |
 
 ---
 
@@ -126,17 +127,18 @@ Historical documents preserved for reference:
 ### Architecture Summary
 
 ```
-ERP (ERPLibre) ←→ Protocol Bridge (hc-http-gw/Node.js) ←→ Holochain Conductor ←→ Nondominium DHT
+ERP (ERPLibre) ←→ Python Bridge ←→ hc-http-gw ←→ Holochain Conductor ←→ Nondominium DHT
 ```
 
 ### PoC vs Production
 
 | Aspect | PoC | Production |
 |--------|-----|------------|
-| Protocol Bridge | hc-http-gw | Node.js |
+| Protocol Bridge | hc-http-gw (via Python client) | Node.js |
+| Dev Environment | Nix dev shell | Docker / Nix |
 | Sync Direction | ERP → Nondominium | Bidirectional |
 | Real-time | Polling | Signals + Webhooks |
-| ERP Support | ERPLibre only | Multi-ERP |
+| ERP Support | Mock ERP (ERPLibre planned) | Multi-ERP |
 
 ---
 

@@ -2,10 +2,11 @@
 # Setup a Holochain sandbox conductor with Nondominium hApp and hc-http-gw.
 #
 # Prerequisites:
-#   - Nix with Holochain dev tools (holochain, hc, hc-http-gw)
+#   - Nix dev shell: nix develop (from the bridge repo root)
 #   - nondominium.happ built: cd ../nondominium && npm run build:happ
 #
 # Usage:
+#   nix develop   # if not already in the dev shell
 #   bash scripts/setup_conductor.sh
 
 set -euo pipefail
@@ -30,7 +31,7 @@ echo "Checking prerequisites..."
 
 if ! command -v holochain &>/dev/null; then
     echo -e "${RED}ERROR: 'holochain' not found. Enter the Nix dev shell first:${NC}"
-    echo "  cd ${NONDOMINIUM_DIR} && nix develop"
+    echo "  nix develop"
     exit 1
 fi
 

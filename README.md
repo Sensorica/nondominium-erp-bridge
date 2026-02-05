@@ -26,19 +26,19 @@ This project demonstrates how organizations using centralized ERP systems can pa
 
 ### Prerequisites
 
-- **Nix** with Holochain dev shell (provides `holochain`, `hc`, `hc-http-gw`)
-- **Python 3.10+**
+- **Nix** with flakes enabled
 - Built `nondominium.happ` (see [Nondominium repo](https://github.com/Sensorica/nondominium))
 
 ### Install
 
 ```bash
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate
+# Enter the Nix dev shell (provides holochain, hc, hc-http-gw, Python 3.12, uv)
+nix develop
 
-# Install with dev dependencies
-pip install -e ".[dev]"
+# Create virtual environment and install Python deps
+uv venv .venv
+source .venv/bin/activate
+uv pip install -e ".[dev]"
 ```
 
 ### Run Tests (no infra needed)
@@ -50,11 +50,11 @@ pytest
 ### Run with Live Infrastructure
 
 ```bash
-# 1. Build the Nondominium hApp (if not done)
-cd ../nondominium && npm run build:happ && cd -
+# 1. Enter the Nix dev shell (if not already in it)
+nix develop
 
-# 2. Enter the Nix dev shell (provides holochain + hc-http-gw)
-cd ../nondominium && nix develop
+# 2. Build the Nondominium hApp (if not done)
+cd ../nondominium && npm run build:happ && cd -
 
 # 3. Start conductor + gateway
 bash scripts/setup_conductor.sh
@@ -74,6 +74,7 @@ python scripts/create_test_data.py
 
 ```
 nondominium-erp-bridge/
+├── flake.nix                           # Nix dev shell (holonix + Python + uv)
 ├── .env.example                        # Environment variable template
 ├── pyproject.toml                      # Python project config (PEP 621)
 ├── bridge/

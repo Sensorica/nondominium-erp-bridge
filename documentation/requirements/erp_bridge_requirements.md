@@ -2,7 +2,7 @@
 
 > **Document Type**: High-Level Requirements
 > **Version**: 1.0
-> **Last Updated**: 2026-01-27
+> **Last Updated**: 2026-02-05
 > **Related Documents**:
 > - [Technical Specifications](../specifications/erp_bridge_specifications.md)
 > - [PoC Implementation Guide](../specifications/poc/hc_http_gw_poc_spec.md)
@@ -124,8 +124,8 @@ Other Organizations
 | **FR-2** | Map to ResourceSpecification | Must Have | Map ERPLibre products to Nondominium `ResourceSpecification` entries |
 | **FR-3** | Publish EconomicResource | Must Have | Publish selected inventory items as `EconomicResource` entries in Nondominium |
 | **FR-4** | Discover Resources | Must Have | Query Nondominium for available resources from other organizations |
-| **FR-5** | Initiate Use Process | Must Have | Initiate a `Use` process in Nondominium for a discovered resource |
-| **FR-6** | Record Events & PPRs | Must Have | Record the `EconomicEvent` and generate PPRs for both parties |
+| **FR-5** | Initiate Use Process | Future | Initiate a `Use` process in Nondominium for a discovered resource *(requires `create_commitment` zome function — not yet implemented)* |
+| **FR-6** | Record Events & PPRs | Future | Record the `EconomicEvent` and generate PPRs for both parties *(requires `record_economic_event` zome function — not yet implemented)* |
 
 ### 5.2 Production Functional Requirements (Future)
 
@@ -169,9 +169,10 @@ Other Organizations
 - Product → ResourceSpecification mapping
 - Stock → EconomicResource mapping
 - Cross-organizational resource discovery
-- Basic Use process initiation
-- PPR generation for transactions
+- Custody transfer between organizations
 - HTTP Gateway (`hc-http-gw`) as protocol bridge
+
+> **Note**: Use process initiation (FR-5) and PPR generation (FR-6) are **future scope** — the `create_commitment` and `record_economic_event` zome functions do not yet exist in the Nondominium codebase. The PoC demonstrates `transfer_custody` as the available cross-org action.
 
 ### 7.2 Out of Scope (PoC)
 
@@ -192,20 +193,20 @@ Other Organizations
 
 | ERP Concept | Nondominium Concept | Notes |
 |-------------|---------------------|-------|
-| Product Template | `ResourceSpecification` | Defines what can be shared |
-| Product Variant | `EconomicResource` | Specific instance available for sharing |
-| Stock Location | Resource `location` field | Where the resource is physically located |
+| Product Template | `ResourceSpecification` | Defines what can be shared (uses `category`, `tags`, `image_url`, `is_active`) |
+| Product Variant | `EconomicResource` | Specific instance available for sharing (uses `spec_hash`, `current_location`, `custodian`, `state`) |
+| Stock Location | Resource `current_location` field | Where the resource is physically located |
 | Available Quantity | `quantity` in `EconomicResource` | How much is available |
-| Stock Move | `EconomicEvent` (Transfer, Use) | History of resource movements |
+| Stock Move | `EconomicEvent` (Transfer, Use) | *Future — not yet implemented in Nondominium* |
 
 ### 8.2 ERPLibre-Specific Mappings
 
 | ERPLibre Model | Purpose | Mapped To |
 |----------------|---------|-----------|
-| `product.product` | Individual products | `EconomicResource` |
+| `product.product` | Individual products | `ResourceSpecification` + `EconomicResource` |
 | `stock.quant` | Available quantities per location | `quantity` field |
-| `stock.move` | Movement history and planned transfers | `EconomicEvent` |
-| `stock.warehouse` | Physical locations | `location` field |
+| `stock.move` | Movement history and planned transfers | *Future: `EconomicEvent`* |
+| `stock.warehouse` | Physical locations | `current_location` field |
 
 ---
 
@@ -221,9 +222,9 @@ Demonstrate that inventory from two organizations running ERPLibre can be synchr
 2. **Organization B** has a laser cutter listed in its ERPLibre inventory
 3. Both organizations **publish** their available equipment to Nondominium
 4. Each organization can **discover** the other's equipment via Nondominium
-5. Organization B initiates a **Use process** for Organization A's 3D printer
-6. The usage is **recorded** as an `EconomicEvent` in Nondominium
-7. The usage is **reflected back** to Organization A's ERPLibre as a "Loan" or "External Use" stock move (future)
+5. Organization B requests **custody transfer** of Organization A's 3D printer via `transfer_custody`
+6. *(Future)* The usage is **recorded** as an `EconomicEvent` in Nondominium — requires zome functions not yet implemented
+7. *(Future)* The usage is **reflected back** to Organization A's ERPLibre as a "Loan" or "External Use" stock move
 
 ### 9.3 Acceptance Criteria
 
@@ -231,8 +232,9 @@ Demonstrate that inventory from two organizations running ERPLibre can be synchr
 |-----------|---------------------|
 | Products correctly mapped | Compare ERP data with Nondominium entries |
 | Cross-org discovery works | Org B can see Org A's resources |
-| Use process records event | Verify EconomicEvent in DHT |
-| PPRs generated | Both parties have participation receipts |
+| Custody transfer works | Org B can request custody of Org A's resource |
+| *(Future)* Use process records event | Verify EconomicEvent in DHT |
+| *(Future)* PPRs generated | Both parties have participation receipts |
 
 ---
 

@@ -2,7 +2,7 @@
 
 > **Document Type**: PoC Implementation Guide
 > **Version**: 1.0
-> **Last Updated**: 2026-01-27
+> **Last Updated**: 2026-02-05
 > **Related Documents**:
 > - [Requirements](../../requirements/erp_bridge_requirements.md)
 > - [Technical Specifications](../erp_bridge_specifications.md)
@@ -34,30 +34,31 @@ The [Holochain HTTP Gateway](https://github.com/holochain/hc-http-gw) exposes Ho
 
 | Component | Version | Purpose |
 |-----------|---------|---------|
-| Docker | Latest | Container runtime |
-| Docker Compose | Latest | Multi-container orchestration |
-| ERPLibre | Latest | ERP system |
-| Holochain | 0.4.x | Distributed app framework |
+| Nix | Latest | Dev shell providing Holochain toolchain |
+| Holochain | 0.6.x (hdi 0.7.0 / hdk 0.6.0) | Distributed app framework |
 | hc-http-gw | Latest | HTTP-to-WebSocket bridge |
 | Nondominium hApp | Latest | ValueFlows-compliant resource app |
 | Python | 3.10+ | Bridge scripts |
+| uv | Latest | Python virtual environment and package management |
 
 ### 2.2 Environment Setup
 
 ```bash
-# Clone the PoC repository
-git clone https://github.com/Sensorica/nondominium-erplibre-poc.git
-cd nondominium-erplibre-poc
+# Clone the bridge repository
+git clone https://github.com/Sensorica/nondominium-erp-bridge.git
+cd nondominium-erp-bridge
 
-# Create environment file
-cat > .env << EOF
-ERPLIBRE_DB=erplibre_db
-ERPLIBRE_USER=admin
-ERPLIBRE_PASSWORD=admin
-HC_GW_PORT=8090
-HC_ADMIN_PORT=4444
-HC_APP_PORT=8888
-EOF
+# Enter the Nix dev shell (provides holochain, hc, hc-http-gw, Python 3.12, uv)
+nix develop
+
+# Create .env from example
+cp .env.example .env
+# Edit .env to set HC_DNA_HASH after running the conductor (see Section 5.1)
+
+# Set up Python environment
+uv venv .venv
+source .venv/bin/activate
+uv pip install -e ".[dev]"
 ```
 
 ---
@@ -74,7 +75,7 @@ GET http://{host}/{dna-hash}/{coordinator-id}/{zome}/{function}?payload={base64-
 
 | Component | Description | Example |
 |-----------|-------------|---------|
-| `{host}` | Gateway host and port | `localhost:8090` |
+| `{host}` | Gateway host and port | `localhost:8888` |
 | `{dna-hash}` | Holochain DNA hash | `uhC0k...` |
 | `{coordinator-id}` | App/coordinator ID | `nondominium` |
 | `{zome}` | Zome name | `zome_resource` |
@@ -84,42 +85,42 @@ GET http://{host}/{dna-hash}/{coordinator-id}/{zome}/{function}?payload={base64-
 ### 3.2 Environment Variables
 
 ```bash
-# hc-http-gw configuration
-HC_GW_ADMIN_WS_URL=ws://holochain:4444       # Admin WebSocket URL
-HC_GW_ALLOWED_APP_IDS=nondominium            # Allowed app IDs (comma-separated)
-HC_GW_PORT=8090                               # Gateway listening port
-HC_GW_LOG_LEVEL=info                          # Logging level
+# hc-http-gw configuration (set via environment when running hc-http-gw)
+HC_GW_ALLOWED_FNS_nondominium=create_resource_specification,get_all_resource_specifications,...
+# The full list of allowed functions is in scripts/setup_conductor.sh
 ```
 
-### 3.3 Docker Compose for hc-http-gw
-
-```yaml
-services:
-  hc-http-gw:
-    image: holochain/hc-http-gw:latest
-    ports:
-      - "8090:8090"
-    environment:
-      - HC_GW_ADMIN_WS_URL=ws://holochain:4444
-      - HC_GW_ALLOWED_APP_IDS=nondominium
-      - HC_GW_PORT=8090
-    networks:
-      - internal
-    depends_on:
-      - holochain
-
-  holochain:
-    image: holochain/holochain:latest
-    volumes:
-      - ./happ:/happ
-      - ./keys:/keys
-    networks:
-      - internal
-
-networks:
-  internal:
-    internal: true
+```bash
+# Python bridge configuration (.env file)
+HC_GW_URL=http://127.0.0.1:8888
+HC_GW_TIMEOUT=30
+HC_APP_ID=nondominium
+HC_DNA_HASH=<discovered after installing the hApp>
 ```
+
+### 3.3 Nix-Based Setup (PoC)
+
+The bridge repo has its own `flake.nix` that provides the complete dev environment (holonix + Python 3.12 + uv):
+
+```bash
+# 1. Enter the Nix dev shell (provides holochain, hc, hc-http-gw, python, uv)
+nix develop
+
+# 2. Build the hApp (if not already built)
+cd ../nondominium && npm run build:happ && cd -
+
+# 3. Run the automated setup script
+bash scripts/setup_conductor.sh
+# This starts a sandbox conductor + hc-http-gw on port 8888
+
+# 4. In another terminal, discover the DNA hash
+hc sandbox call list-apps --directories .local/sandbox
+
+# 5. Set the DNA hash in .env
+echo "HC_DNA_HASH=uhC0k..." >> .env
+```
+
+> **Note**: Docker Compose may be used for future production deployments. See the [Technical Specifications](../erp_bridge_specifications.md) for the Docker configuration.
 
 ### 3.4 Known Limitations
 
@@ -167,26 +168,28 @@ class ERPLibreClient:
 ### 4.2 Data Mapping
 
 ```python
-class NondominiumMapper:
-    @staticmethod
-    def product_to_resource_spec(product):
-        """Map ERPLibre product to Nondominium ResourceSpecification."""
-        return {
-            "name": product['name'],
-            "description": f"SKU: {product.get('default_code', 'N/A')}",
-            "default_unit": product['uom_id'][1] if product.get('uom_id') else "unit",
-            "governance_rules": []
-        }
+# bridge/mapper.py (actual implementation)
+from bridge.models import ResourceSpecificationInput, EconomicResourceInput
 
-    @staticmethod
-    def product_to_economic_resource(product, spec_hash):
-        """Map ERPLibre product to Nondominium EconomicResource."""
-        return {
-            "conforms_to": spec_hash,
-            "quantity": product['qty_available'],
-            "unit": product['uom_id'][1] if product.get('uom_id') else "unit",
-            "location": "warehouse"  # Could map from stock.warehouse
-        }
+def product_to_resource_spec(product):
+    """Map an ERP product to a Nondominium ResourceSpecificationInput."""
+    return ResourceSpecificationInput(
+        name=product['name'],
+        description=product.get('description', f"SKU: {product.get('default_code', 'N/A')}"),
+        category=product.get('category', 'general'),  # NOTE: `category`, not `default_unit`
+        image_url=product.get('image_url'),
+        tags=product.get('tags', []),
+        governance_rules=[],
+    )
+
+def product_to_economic_resource(product, spec_hash):
+    """Map an ERP product to a Nondominium EconomicResourceInput."""
+    return EconomicResourceInput(
+        spec_hash=spec_hash,       # NOTE: `spec_hash`, not `conforms_to`
+        quantity=product['qty_available'],
+        unit=product.get('uom_name', 'unit'),
+        current_location=None,     # NOTE: `current_location`, not `location`
+    )
 ```
 
 ---
@@ -195,157 +198,134 @@ class NondominiumMapper:
 
 ### 5.1 Phase 1: Environment Setup (Week 1)
 
-**Step 1.1: Deploy ERPLibre**
+**Step 1.1: Set Up Nix Dev Environment**
 
 ```bash
-# Start ERPLibre with Docker
-docker-compose -f docker-compose.erplibre.yml up -d
+# Enter the bridge Nix dev shell (provides holochain, hc, hc-http-gw, Python 3.12, uv)
+nix develop
 
-# Wait for initialization
-sleep 30
-
-# Create test database
-docker exec erplibre odoo -d erplibre_db -i base --stop-after-init
+# Build the Nondominium hApp (if not already built)
+cd ../nondominium && npm run build:happ && cd -
 ```
 
-**Step 1.2: Deploy Holochain and Nondominium**
+**Step 1.2: Start Holochain Conductor and hc-http-gw**
 
 ```bash
-# Start Holochain conductor
-docker-compose -f docker-compose.holochain.yml up -d
+# Run the setup script
+bash scripts/setup_conductor.sh
 
-# Install Nondominium hApp
-docker exec holochain hc app install ./happ/nondominium.happ
+# This script:
+#   1. Checks prerequisites (holochain, hc, nondominium.happ)
+#   2. Creates a sandbox conductor
+#   3. Starts hc-http-gw on port 8888 with allowed functions
 ```
 
-**Step 1.3: Deploy hc-http-gw**
+**Step 1.3: Discover DNA Hash and Configure**
 
 ```bash
-# Start the HTTP gateway
-docker-compose -f docker-compose.gateway.yml up -d
+# In another terminal, discover the DNA hash
+hc sandbox call list-apps --directories .local/sandbox
 
-# Verify gateway is running
-curl http://localhost:8090/health
+# Copy .env.example and set the DNA hash
+cp .env.example .env
+# Edit .env: HC_DNA_HASH=uhC0k...
 ```
 
-**Step 1.4: Create Test Data**
+**Step 1.4: Set Up Python Environment and Test Data**
 
-```python
-# scripts/create_test_data.py
-from erp_client import ERPLibreClient
+```bash
+# Set up Python with uv
+uv venv .venv
+source .venv/bin/activate
+uv pip install -e ".[dev]"
 
-erp = ERPLibreClient(
-    url='http://localhost:8069',
-    db='erplibre_db',
-    username='admin',
-    password='admin'
-)
-
-# Create Organization A products
-org_a_products = [
-    {'name': '3D Printer - Prusa MK4', 'default_code': 'PRUSA-MK4', 'qty_available': 1},
-    {'name': 'Laser Cutter - 40W', 'default_code': 'LASER-40W', 'qty_available': 1},
-    {'name': 'CNC Router', 'default_code': 'CNC-R01', 'qty_available': 2},
-]
-
-for product in org_a_products:
-    erp.create_product(product)
+# Run tests to verify setup
+pytest -v
 ```
+
+The PoC uses a **mock ERP client** (`bridge/erp_mock.py`) with sample Sensorica fab-lab products instead of a live ERPLibre instance. This allows development and testing without ERP infrastructure.
 
 ### 5.2 Phase 2: Bridge Development (Week 2)
 
 **Step 2.1: Gateway Client**
 
+The actual implementation (`bridge/gateway_client.py`) uses Pydantic models and base64url encoding:
+
 ```python
-# bridge/gateway_client.py
-import requests
+# bridge/gateway_client.py (simplified excerpt)
 import base64
 import json
+import requests
 
-class HcHttpGwClient:
-    def __init__(self, gw_url, dna_hash, app_id="nondominium"):
-        self.gw_url = gw_url
-        self.dna_hash = dna_hash
-        self.app_id = app_id
+class HolochainGatewayClient:
+    ZOME = "zome_resource"
 
-    def call_zome(self, zome, function, payload=None):
-        """Call a zome function via hc-http-gw."""
-        url = f"{self.gw_url}/{self.dna_hash}/{self.app_id}/{zome}/{function}"
+    def __init__(self, config):
+        self.config = config  # GatewayConfig with url, dna_hash, app_id, timeout
+        self._session = requests.Session()
 
-        if payload:
-            payload_b64 = base64.b64encode(
-                json.dumps(payload).encode()
-            ).decode()
-            url += f"?payload={payload_b64}"
+    @staticmethod
+    def _encode_payload(data):
+        """Base64url-encode a JSON payload (RFC 4648, no padding)."""
+        json_bytes = json.dumps(data, separators=(",", ":")).encode()
+        return base64.urlsafe_b64encode(json_bytes).rstrip(b"=").decode()
 
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.json()
+    def _call(self, fn_name, payload=None):
+        """Call a zome function via hc-http-gw and return parsed JSON."""
+        url = f"{self.config.url}/{self.config.dna_hash}/{self.config.app_id}/{self.ZOME}/{fn_name}"
+        params = {}
+        if payload is not None:
+            params["payload"] = self._encode_payload(payload)
+        resp = self._session.get(url, params=params, timeout=self.config.timeout)
+        resp.raise_for_status()
+        return resp.json()
 
-    def create_resource_specification(self, spec_input):
-        """Create a ResourceSpecification."""
-        return self.call_zome(
-            "zome_resource",
-            "create_resource_specification",
-            spec_input
-        )
+    # Typed methods return Pydantic models:
+    def create_resource_specification(self, input_data):
+        data = self._call("create_resource_specification", input_data.model_dump(mode="json"))
+        return CreateResourceSpecificationOutput.model_validate(data)
 
-    def create_economic_resource(self, resource_input):
-        """Create an EconomicResource."""
-        return self.call_zome(
-            "zome_resource",
-            "create_economic_resource",
-            resource_input
-        )
+    def get_all_economic_resources(self):
+        data = self._call("get_all_economic_resources")  # No payload for () functions
+        return GetAllEconomicResourcesOutput.model_validate(data)
 
-    def get_all_resources(self):
-        """Get all available resources."""
-        return self.call_zome(
-            "zome_resource",
-            "get_all_resources"
-        )
+    def transfer_custody(self, input_data):
+        data = self._call("transfer_custody", input_data.model_dump(mode="json"))
+        return TransferCustodyOutput.model_validate(data)
+    # ... see bridge/gateway_client.py for full implementation
 ```
 
 **Step 2.2: Sync Script**
 
 ```python
-# bridge/sync_erp_to_nondominium.py
-from erp_client import ERPLibreClient
-from gateway_client import HcHttpGwClient
-from mapper import NondominiumMapper
+# Example sync script using the bridge modules
+from bridge.config import GatewayConfig
+from bridge.erp_mock import MockERPClient
+from bridge.gateway_client import HolochainGatewayClient
+from bridge.mapper import product_to_resource_spec, product_to_economic_resource
 
 def sync_inventory():
-    """Sync ERPLibre inventory to Nondominium."""
+    """Sync ERP inventory to Nondominium."""
 
     # Initialize clients
-    erp = ERPLibreClient(
-        url='http://localhost:8069',
-        db='erplibre_db',
-        username='admin',
-        password='admin'
-    )
-
-    gw = HcHttpGwClient(
-        gw_url='http://localhost:8090',
-        dna_hash='uhC0k...'  # Your DNA hash
-    )
+    erp = MockERPClient()  # Replace with ERPLibreClient for real ERP
+    gw = HolochainGatewayClient(GatewayConfig.from_env())
 
     # Get available products
     products = erp.get_available_products()
     print(f"Found {len(products)} products to sync")
 
     for product in products:
-        # Create ResourceSpecification
-        spec_input = NondominiumMapper.product_to_resource_spec(product)
-        spec_hash = gw.create_resource_specification(spec_input)
+        # Create ResourceSpecification (uses `category`, not `default_unit`)
+        spec_input = product_to_resource_spec(product)
+        result = gw.create_resource_specification(spec_input)
+        spec_hash = result.spec_hash
         print(f"Created spec: {spec_hash}")
 
-        # Create EconomicResource
-        resource_input = NondominiumMapper.product_to_economic_resource(
-            product, spec_hash
-        )
-        resource_hash = gw.create_economic_resource(resource_input)
-        print(f"Created resource: {resource_hash}")
+        # Create EconomicResource (uses `spec_hash`, not `conforms_to`)
+        resource_input = product_to_economic_resource(product, spec_hash)
+        resource_result = gw.create_economic_resource(resource_input)
+        print(f"Created resource: {resource_result.resource_hash}")
 
 if __name__ == '__main__':
     sync_inventory()
@@ -356,62 +336,52 @@ if __name__ == '__main__':
 **Step 3.1: Resource Discovery**
 
 ```python
-# bridge/discover_resources.py
-from gateway_client import HcHttpGwClient
+# Example: discovering resources from the network
+from bridge.config import GatewayConfig
+from bridge.gateway_client import HolochainGatewayClient
 
 def discover_resources():
     """Discover resources from other organizations."""
 
-    gw = HcHttpGwClient(
-        gw_url='http://localhost:8090',
-        dna_hash='uhC0k...'
-    )
+    gw = HolochainGatewayClient(GatewayConfig.from_env())
 
-    resources = gw.get_all_resources()
+    result = gw.get_all_economic_resources()  # NOTE: `get_all_economic_resources`, not `get_all_resources`
 
     print("\n=== Available Resources ===\n")
-    for resource in resources:
-        print(f"Resource: {resource.get('conforms_to', 'Unknown')}")
-        print(f"  Quantity: {resource.get('quantity', 0)} {resource.get('unit', 'units')}")
-        print(f"  Location: {resource.get('location', 'Unknown')}")
-        print(f"  Hash: {resource.get('hash', 'N/A')}")
+    for resource in result.resources:
+        print(f"  Quantity: {resource.quantity} {resource.unit}")
+        print(f"  Location: {resource.current_location or 'Unknown'}")  # NOTE: `current_location`
+        print(f"  Custodian: {resource.custodian}")
+        print(f"  State: {resource.state.value}")
         print()
 
 if __name__ == '__main__':
     discover_resources()
 ```
 
-**Step 3.2: Request Use Process**
+**Step 3.2: Transfer Custody**
+
+The current Nondominium codebase supports `transfer_custody` as the available cross-organization action. `create_commitment` and `record_economic_event` are **not yet implemented** in the zome.
 
 ```python
-# bridge/request_resource.py
-from gateway_client import HcHttpGwClient
+# Example: transferring custody of a resource to another agent
+from bridge.config import GatewayConfig
+from bridge.gateway_client import HolochainGatewayClient
+from bridge.models import TransferCustodyInput
 
-def request_resource_use(resource_hash, quantity, duration_hours):
-    """Request to use a discovered resource."""
+def transfer_resource(resource_hash, new_custodian_pubkey):
+    """Transfer custody of a resource to another organization."""
 
-    gw = HcHttpGwClient(
-        gw_url='http://localhost:8090',
-        dna_hash='uhC0k...'
+    gw = HolochainGatewayClient(GatewayConfig.from_env())
+
+    input_data = TransferCustodyInput(
+        resource_hash=resource_hash,
+        new_custodian=new_custodian_pubkey,
     )
 
-    # Create a commitment (request)
-    commitment_input = {
-        "resource_hash": resource_hash,
-        "requested_quantity": quantity,
-        "duration_hours": duration_hours,
-        "purpose": "Research project",
-        "action_type": "use"
-    }
-
-    commitment_hash = gw.call_zome(
-        "zome_resource",
-        "create_commitment",
-        commitment_input
-    )
-
-    print(f"Created use request: {commitment_hash}")
-    return commitment_hash
+    result = gw.transfer_custody(input_data)
+    print(f"Custody transferred: {result.updated_resource_hash}")
+    return result
 ```
 
 ### 5.4 Phase 4: Demo and Documentation (Week 4)
@@ -423,16 +393,19 @@ def request_resource_use(resource_hash, quantity, duration_hours):
 """
 ERP-Holochain Bridge PoC Demonstration
 
-This script demonstrates the full flow:
-1. Organization A publishes resources from ERPLibre
+This script demonstrates the available flow:
+1. Organization A publishes resources from ERP (mock)
 2. Organization B discovers resources via Nondominium
-3. Organization B requests to use Organization A's 3D printer
-4. The use event is recorded with PPRs
+3. Organization B requests custody transfer of a resource
+
+Note: Steps for create_commitment and record_economic_event are
+future scope — these zome functions do not yet exist in Nondominium.
 """
 
-from bridge.erp_client import ERPLibreClient
-from bridge.gateway_client import HcHttpGwClient
-from bridge.mapper import NondominiumMapper
+from bridge.config import GatewayConfig
+from bridge.erp_mock import MockERPClient
+from bridge.gateway_client import HolochainGatewayClient
+from bridge.mapper import product_to_resource_spec, product_to_economic_resource
 
 def demo():
     print("=" * 60)
@@ -440,48 +413,35 @@ def demo():
     print("=" * 60)
 
     # Setup clients
-    erp_a = ERPLibreClient('http://org-a:8069', 'db_a', 'admin', 'admin')
-    erp_b = ERPLibreClient('http://org-b:8069', 'db_b', 'admin', 'admin')
-    gw = HcHttpGwClient('http://localhost:8090', 'uhC0k...')
+    erp = MockERPClient()
+    gw = HolochainGatewayClient(GatewayConfig.from_env())
 
-    # Step 1: Org A publishes resources
-    print("\n[Step 1] Organization A publishing resources...")
-    products_a = erp_a.get_available_products()
-    for product in products_a:
-        spec = NondominiumMapper.product_to_resource_spec(product)
-        spec_hash = gw.create_resource_specification(spec)
-        resource = NondominiumMapper.product_to_economic_resource(product, spec_hash)
-        gw.create_economic_resource(resource)
-        print(f"  Published: {product['name']}")
+    # Step 1: Publish resources from mock ERP
+    print("\n[Step 1] Publishing resources from mock ERP...")
+    products = erp.get_available_products()
+    for product in products:
+        spec_input = product_to_resource_spec(product)
+        spec_result = gw.create_resource_specification(spec_input)
+        resource_input = product_to_economic_resource(product, spec_result.spec_hash)
+        gw.create_economic_resource(resource_input)
+        print(f"  Published: {product.name}")
 
-    # Step 2: Org B discovers resources
-    print("\n[Step 2] Organization B discovering resources...")
-    resources = gw.get_all_resources()
-    for r in resources:
-        print(f"  Found: {r['quantity']} x {r.get('conforms_to', 'Unknown')}")
+    # Step 2: Discover resources
+    print("\n[Step 2] Discovering resources from Nondominium...")
+    result = gw.get_all_economic_resources()
+    for r in result.resources:
+        print(f"  Found: {r.quantity} {r.unit} (state: {r.state.value})")
 
-    # Step 3: Org B requests 3D printer
-    print("\n[Step 3] Organization B requesting 3D printer...")
-    printer = next(r for r in resources if '3D Printer' in str(r))
-    commitment = gw.call_zome('zome_resource', 'create_commitment', {
-        'resource_hash': printer['hash'],
-        'requested_quantity': 1,
-        'duration_hours': 24,
-        'purpose': 'Prototype fabrication'
-    })
-    print(f"  Request created: {commitment}")
+    # Step 3: Transfer custody (the available cross-org action)
+    print("\n[Step 3] Custody transfer available via transfer_custody()...")
+    print("  (Requires a second agent's public key — see bridge/models.py TransferCustodyInput)")
 
-    # Step 4: Record usage event
-    print("\n[Step 4] Recording usage event...")
-    event = gw.call_zome('zome_resource', 'record_economic_event', {
-        'commitment_hash': commitment,
-        'action': 'use',
-        'resource_quantity': 1
-    })
-    print(f"  Event recorded: {event}")
+    # Future steps (not yet implemented in Nondominium):
+    # Step 4: create_commitment — request to use a resource
+    # Step 5: record_economic_event — record usage with PPRs
 
     print("\n" + "=" * 60)
-    print("Demo complete! PPRs generated for both organizations.")
+    print("Demo complete!")
     print("=" * 60)
 
 if __name__ == '__main__':
@@ -492,181 +452,111 @@ if __name__ == '__main__':
 
 ## 6. Code Examples
 
-### 6.1 Complete Bridge Client
+### 6.1 Actual Bridge Architecture
 
-```python
-# bridge/nondominium_bridge.py
-"""
-Complete Nondominium Bridge Client for ERPLibre PoC
-"""
+The PoC bridge is split across multiple modules in the `bridge/` package:
 
-import xmlrpc.client
-import requests
-import base64
-import json
-from typing import Optional, Dict, Any, List
-from dataclasses import dataclass
-
-@dataclass
-class ResourceSpec:
-    name: str
-    description: str
-    default_unit: str
-    governance_rules: List[str]
-
-@dataclass
-class EconomicResource:
-    conforms_to: str
-    quantity: float
-    unit: str
-    location: str
-
-class NondominiumBridge:
-    """Bridge between ERPLibre and Nondominium via hc-http-gw."""
-
-    def __init__(
-        self,
-        erp_url: str,
-        erp_db: str,
-        erp_user: str,
-        erp_password: str,
-        gateway_url: str,
-        dna_hash: str
-    ):
-        # ERPLibre connection
-        self.erp_url = erp_url
-        self.erp_db = erp_db
-        common = xmlrpc.client.ServerProxy(f'{erp_url}/xmlrpc/2/common')
-        self.erp_uid = common.authenticate(erp_db, erp_user, erp_password, {})
-        self.erp_models = xmlrpc.client.ServerProxy(f'{erp_url}/xmlrpc/2/object')
-
-        # Gateway connection
-        self.gateway_url = gateway_url
-        self.dna_hash = dna_hash
-        self.app_id = "nondominium"
-
-    def _call_erp(self, model: str, method: str, args: List, kwargs: Dict = None) -> Any:
-        """Call ERPLibre model method."""
-        return self.erp_models.execute_kw(
-            self.erp_db, self.erp_uid, self.erp_password,
-            model, method, args, kwargs or {}
-        )
-
-    def _call_zome(self, zome: str, fn: str, payload: Optional[Dict] = None) -> Any:
-        """Call Holochain zome function via gateway."""
-        url = f"{self.gateway_url}/{self.dna_hash}/{self.app_id}/{zome}/{fn}"
-
-        if payload:
-            payload_b64 = base64.b64encode(json.dumps(payload).encode()).decode()
-            url += f"?payload={payload_b64}"
-
-        response = requests.get(url, timeout=30)
-        response.raise_for_status()
-        return response.json()
-
-    def get_shareable_products(self) -> List[Dict]:
-        """Get products available for sharing."""
-        return self._call_erp(
-            'product.product', 'search_read',
-            [[('qty_available', '>', 0)]],
-            {'fields': ['name', 'default_code', 'qty_available', 'uom_id', 'categ_id']}
-        )
-
-    def publish_resource(self, product: Dict) -> str:
-        """Publish an ERPLibre product to Nondominium."""
-        # Create ResourceSpecification
-        spec_input = {
-            "name": product['name'],
-            "description": f"SKU: {product.get('default_code', 'N/A')}",
-            "default_unit": product['uom_id'][1] if product.get('uom_id') else "unit",
-            "governance_rules": []
-        }
-        spec_hash = self._call_zome("zome_resource", "create_resource_specification", spec_input)
-
-        # Create EconomicResource
-        resource_input = {
-            "conforms_to": spec_hash,
-            "quantity": product['qty_available'],
-            "unit": product['uom_id'][1] if product.get('uom_id') else "unit",
-            "location": "warehouse"
-        }
-        resource_hash = self._call_zome("zome_resource", "create_economic_resource", resource_input)
-
-        return resource_hash
-
-    def discover_resources(self) -> List[Dict]:
-        """Discover available resources from other organizations."""
-        return self._call_zome("zome_resource", "get_all_resources")
-
-    def request_use(self, resource_hash: str, quantity: float, hours: int, purpose: str) -> str:
-        """Request to use a resource."""
-        commitment_input = {
-            "resource_hash": resource_hash,
-            "requested_quantity": quantity,
-            "duration_hours": hours,
-            "purpose": purpose,
-            "action_type": "use"
-        }
-        return self._call_zome("zome_resource", "create_commitment", commitment_input)
-
-    def sync_all(self) -> Dict[str, int]:
-        """Sync all shareable products to Nondominium."""
-        products = self.get_shareable_products()
-        synced = 0
-
-        for product in products:
-            try:
-                self.publish_resource(product)
-                synced += 1
-            except Exception as e:
-                print(f"Failed to sync {product['name']}: {e}")
-
-        return {"total": len(products), "synced": synced}
+```
+bridge/
+├── __init__.py
+├── config.py          # GatewayConfig loaded from .env
+├── models.py          # Pydantic v2 models matching Rust zome types
+├── gateway_client.py  # Typed HTTP client for hc-http-gw
+├── mapper.py          # ERP product → Nondominium input mapping
+└── erp_mock.py        # Mock ERP client with sample products
 ```
 
-### 6.2 Simple Web Interface
+**Key models (`bridge/models.py`):**
 
 ```python
-# web/app.py
+from pydantic import BaseModel, Field
+from enum import Enum
+
+class ResourceState(str, Enum):
+    PENDING_VALIDATION = "PendingValidation"
+    ACTIVE = "Active"
+    MAINTENANCE = "Maintenance"
+    RETIRED = "Retired"
+    RESERVED = "Reserved"
+
+class ResourceSpecification(BaseModel):
+    name: str
+    description: str
+    category: str                          # NOT `default_unit`
+    image_url: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    is_active: bool = True
+
+class EconomicResource(BaseModel):
+    quantity: float
+    unit: str
+    custodian: str                         # AgentPubKey as base64 string
+    current_location: str | None = None    # NOT `location`
+    state: ResourceState = ResourceState.PENDING_VALIDATION
+
+class ResourceSpecificationInput(BaseModel):
+    name: str
+    description: str
+    category: str                          # NOT `default_unit`
+    image_url: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    governance_rules: list[GovernanceRuleInput] = Field(default_factory=list)
+
+class EconomicResourceInput(BaseModel):
+    spec_hash: str                         # NOT `conforms_to`
+    quantity: float
+    unit: str
+    current_location: str | None = None    # NOT `location`
+
+class TransferCustodyInput(BaseModel):
+    resource_hash: str
+    new_custodian: str                     # AgentPubKey
+    request_contact_info: bool | None = None
+```
+
+**Encoding (`bridge/gateway_client.py`):**
+
+```python
+@staticmethod
+def _encode_payload(data):
+    """Base64url-encode a JSON payload (RFC 4648, no padding)."""
+    json_bytes = json.dumps(data, separators=(",", ":")).encode()
+    return base64.urlsafe_b64encode(json_bytes).rstrip(b"=").decode()
+    # NOTE: urlsafe_b64encode (not b64encode), with padding stripped
+```
+
+See `bridge/gateway_client.py` for the complete typed client with all zome function wrappers.
+
+### 6.2 Example: Simple Web Interface (Future)
+
+```python
+# web/app.py (example — not part of current PoC scaffolding)
 """
 Simple Flask web interface for the PoC demo.
 """
 
 from flask import Flask, render_template, jsonify
-from bridge.nondominium_bridge import NondominiumBridge
+from bridge.config import GatewayConfig
+from bridge.erp_mock import MockERPClient
+from bridge.gateway_client import HolochainGatewayClient
+from bridge.mapper import product_to_resource_spec, product_to_economic_resource
 
 app = Flask(__name__)
 
-bridge = NondominiumBridge(
-    erp_url='http://localhost:8069',
-    erp_db='erplibre_db',
-    erp_user='admin',
-    erp_password='admin',
-    gateway_url='http://localhost:8090',
-    dna_hash='uhC0k...'  # Replace with actual DNA hash
-)
-
-@app.route('/')
-def index():
-    return render_template('index.html')
+erp = MockERPClient()
+gw = HolochainGatewayClient(GatewayConfig.from_env())
 
 @app.route('/api/local-products')
 def local_products():
-    """Get products from local ERPLibre."""
-    products = bridge.get_shareable_products()
-    return jsonify(products)
+    """Get products from mock ERP."""
+    products = erp.get_available_products()
+    return jsonify([{"name": p.name, "qty": p.qty_available} for p in products])
 
 @app.route('/api/network-resources')
 def network_resources():
     """Get resources from Nondominium network."""
-    resources = bridge.discover_resources()
-    return jsonify(resources)
-
-@app.route('/api/sync', methods=['POST'])
-def sync():
-    """Sync local products to Nondominium."""
-    result = bridge.sync_all()
-    return jsonify(result)
+    result = gw.get_all_economic_resources()
+    return jsonify([r.model_dump() for r in result.resources])
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
@@ -678,72 +568,70 @@ if __name__ == '__main__':
 
 ### 7.1 Unit Tests
 
+The PoC includes 34 unit tests covering models, gateway client, and mapper:
+
+```bash
+# Run all tests
+pytest -v
+
+# Run specific test modules
+pytest tests/test_models.py -v      # Pydantic model validation
+pytest tests/test_gateway.py -v     # Gateway client (mocked HTTP)
+pytest tests/test_mapper.py -v      # ERP → Nondominium mapping
+```
+
+Example test (from `tests/test_mapper.py`):
+
 ```python
-# tests/test_bridge.py
-import pytest
-from bridge.nondominium_bridge import NondominiumBridge
+from bridge.erp_mock import MOCK_PRODUCTS
+from bridge.mapper import product_to_resource_spec, product_to_economic_resource
 
-@pytest.fixture
-def bridge():
-    return NondominiumBridge(
-        erp_url='http://localhost:8069',
-        erp_db='test_db',
-        erp_user='admin',
-        erp_password='admin',
-        gateway_url='http://localhost:8090',
-        dna_hash='uhC0k...'
-    )
+def test_product_to_resource_spec():
+    product = MOCK_PRODUCTS[0]
+    spec = product_to_resource_spec(product)
+    assert spec.name == product.name
+    assert spec.category == product.category   # `category`, not `default_unit`
+    assert spec.tags == product.tags
 
-def test_get_products(bridge):
-    products = bridge.get_shareable_products()
-    assert isinstance(products, list)
-
-def test_discover_resources(bridge):
-    resources = bridge.discover_resources()
-    assert isinstance(resources, list)
-
-def test_publish_resource(bridge):
-    product = {
-        'name': 'Test Product',
-        'default_code': 'TEST-001',
-        'qty_available': 1,
-        'uom_id': [1, 'Unit']
-    }
-    resource_hash = bridge.publish_resource(product)
-    assert resource_hash is not None
-    assert len(resource_hash) > 0
+def test_product_to_economic_resource():
+    product = MOCK_PRODUCTS[0]
+    resource = product_to_economic_resource(product, "uhCkk_test_hash")
+    assert resource.spec_hash == "uhCkk_test_hash"  # `spec_hash`, not `conforms_to`
+    assert resource.quantity == product.qty_available
 ```
 
 ### 7.2 Integration Test Checklist
 
 | Test Case | Expected Result | Pass/Fail |
 |-----------|-----------------|-----------|
-| ERPLibre API connection | Authenticated successfully | |
-| Read products with quantity > 0 | Returns product list | |
-| hc-http-gw health check | Returns 200 OK | |
-| Create ResourceSpecification | Returns ActionHash | |
-| Create EconomicResource | Returns ActionHash | |
-| Get all resources | Returns resource list | |
-| Create commitment | Returns commitment hash | |
-| Record economic event | Returns event hash | |
+| Python tests pass | `pytest -v` reports 34 passed | |
+| hc-http-gw reachable | `curl http://localhost:8888/` returns response | |
+| Create ResourceSpecification | Returns `CreateResourceSpecificationOutput` with `spec_hash` | |
+| Create EconomicResource | Returns `CreateEconomicResourceOutput` with `resource_hash` | |
+| Get all economic resources | Returns `GetAllEconomicResourcesOutput` with resources list | |
+| Get all resource specifications | Returns `GetAllResourceSpecificationsOutput` | |
+| Transfer custody | Returns `TransferCustodyOutput` with updated resource | |
+| Update resource state | Returns updated resource with new state | |
 
 ### 7.3 Validation Procedures
 
 ```bash
-# 1. Verify ERPLibre is running
-curl http://localhost:8069/web/database/selector
+# 1. Verify hc-http-gw is running (port 8888)
+curl http://localhost:8888/
 
-# 2. Verify hc-http-gw is running
-curl http://localhost:8090/health
+# 2. Test zome call (get all economic resources — no payload needed)
+curl "http://localhost:8888/<DNA_HASH>/nondominium/zome_resource/get_all_economic_resources"
 
-# 3. Test zome call (get all resources)
-curl "http://localhost:8090/uhC0k.../nondominium/zome_resource/get_all_resources"
+# 3. Run Python unit tests
+pytest -v
 
-# 4. Run sync script
-python bridge/sync_erp_to_nondominium.py
-
-# 5. Verify resources in Nondominium
-python bridge/discover_resources.py
+# 4. Run a manual sync test (requires running conductor)
+python -c "
+from bridge.config import GatewayConfig
+from bridge.gateway_client import HolochainGatewayClient
+gw = HolochainGatewayClient(GatewayConfig.from_env())
+print('Health check:', gw.health_check())
+"
 ```
 
 ---

@@ -2,7 +2,7 @@
 
 > **Document Type**: Technical Specifications
 > **Version**: 1.0
-> **Last Updated**: 2026-01-27
+> **Last Updated**: 2026-02-05
 > **Related Documents**:
 > - [Requirements](../requirements/erp_bridge_requirements.md)
 > - [PoC Implementation Guide](poc/hc_http_gw_poc_spec.md)
@@ -249,31 +249,66 @@ app.listen(3000);
 
 | ERP Concept | Nondominium Concept | Notes |
 |-------------|---------------------|-------|
-| Product Template | `ResourceSpecification` | Defines what can be shared |
-| Product Variant | `EconomicResource` | Specific instance available for sharing |
-| Stock Location | Resource `location` field | Where the resource is physically located |
+| Product Template | `ResourceSpecification` | Defines what can be shared (`category`, `tags`, `image_url`, `is_active`) |
+| Product Variant | `EconomicResource` | Specific instance (`spec_hash`, `current_location`, `custodian`, `state`) |
+| Stock Location | Resource `current_location` field | Where the resource is physically located |
 | Available Quantity | `quantity` in `EconomicResource` | How much is available |
-| Stock Move | `EconomicEvent` (Transfer, Use) | History of resource movements |
+| Resource State | `ResourceState` enum | `PendingValidation`, `Active`, `Maintenance`, `Retired`, `Reserved` |
+| Stock Move | `EconomicEvent` (Transfer, Use) | *Future — not yet implemented in Nondominium* |
 
 ### 4.2 ERPLibre Model Mappings
 
 | ERPLibre Model | Fields Used | Maps To |
 |----------------|-------------|---------|
-| `product.product` | `name`, `default_code`, `description` | `ResourceSpecification` |
+| `product.product` | `name`, `default_code`, `description`, `categ_id` | `ResourceSpecification` (name, description, `category`) |
 | `stock.quant` | `product_id`, `quantity`, `location_id` | `EconomicResource.quantity` |
 | `product.uom` | `name` | `EconomicResource.unit` |
-| `stock.warehouse` | `name`, `code` | `EconomicResource.location` |
+| `stock.warehouse` | `name`, `code` | `EconomicResource.current_location` |
+
+> **Note**: The Nondominium `ResourceSpecification` uses `category` (not `default_unit`) and `EconomicResourceInput` uses `spec_hash` (not `conforms_to`). See `bridge/models.py` for the exact Pydantic models.
 
 ### 4.3 Nondominium Zome Functions
 
-Based on the Nondominium codebase (`zome_resource`):
+Complete function list from the `zome_resource` coordinator (Holochain 0.6.x, hdi 0.7.0 / hdk 0.6.0):
+
+**ResourceSpecification functions:**
 
 | Function | Input | Output | Description |
 |----------|-------|--------|-------------|
-| `create_resource_specification` | `ResourceSpecificationInput` | `ActionHash` | Create a new resource type definition |
-| `create_economic_resource` | `EconomicResourceInput` | `ActionHash` | Create a specific resource instance |
-| `get_all_resources` | None | `Vec<EconomicResource>` | List all available resources |
-| `get_resource` | `ActionHash` | `EconomicResource` | Get a specific resource |
+| `create_resource_specification` | `ResourceSpecificationInput` | `CreateResourceSpecificationOutput` | Create a resource type with optional governance rules |
+| `get_all_resource_specifications` | None | `GetAllResourceSpecificationsOutput` | List all resource specifications |
+| `get_latest_resource_specification` | `ActionHash` | `ResourceSpecification` | Get a specific spec by hash |
+| `get_resource_specification_with_rules` | `ActionHash` | `GetResourceSpecWithRulesOutput` | Get spec with its governance rules |
+| `get_resource_specifications_by_category` | `String` | `Vec<ResourceSpecification>` | Filter specs by category |
+| `get_my_resource_specifications` | None | `Vec<ResourceSpecification>` | Get specs created by current agent |
+| `update_resource_specification` | update input | updated spec | Update an existing spec |
+
+**EconomicResource functions:**
+
+| Function | Input | Output | Description |
+|----------|-------|--------|-------------|
+| `create_economic_resource` | `EconomicResourceInput` | `CreateEconomicResourceOutput` | Create a resource instance linked to a spec via `spec_hash` |
+| `get_all_economic_resources` | None | `GetAllEconomicResourcesOutput` | List all economic resources |
+| `get_latest_economic_resource` | `ActionHash` | `EconomicResource` | Get a specific resource by hash |
+| `get_resources_by_specification` | `ActionHash` | `Vec<EconomicResource>` | Get resources for a given spec |
+| `get_my_economic_resources` | None | `Vec<EconomicResource>` | Get resources created by current agent |
+| `update_economic_resource` | update input | updated resource | Update an existing resource |
+
+**Custody & State functions:**
+
+| Function | Input | Output | Description |
+|----------|-------|--------|-------------|
+| `transfer_custody` | `TransferCustodyInput` | `TransferCustodyOutput` | Transfer resource custody to another agent |
+| `update_resource_state` | `UpdateResourceStateInput` | updated resource | Change resource state (Active, Retired, etc.) |
+
+**GovernanceRule functions:**
+
+| Function | Input | Output | Description |
+|----------|-------|--------|-------------|
+| `create_governance_rule` | `GovernanceRuleInput` | `ActionHash` | Create a governance rule |
+| `get_all_governance_rules` | None | `Vec<GovernanceRule>` | List all governance rules |
+| `get_latest_governance_rule` | `ActionHash` | `GovernanceRule` | Get a specific rule by hash |
+| `update_governance_rule` | update input | updated rule | Update an existing rule |
 
 ---
 
@@ -283,18 +318,24 @@ Based on the Nondominium codebase (`zome_resource`):
 
 **URL Format:**
 ```
-GET http://{host}/{dna-hash}/{coordinator-id}/{zome}/{function}?payload={base64-encoded-json}
+GET http://{host}/{dna-hash}/{app-id}/{zome}/{function}?payload={base64url-encoded-json}
 ```
 
-**Important Limitations:**
+**Important Details:**
 - **GET-only**: No POST support
-- **Base64 payload**: Input must be base64-encoded in query string
+- **Base64url payload**: Input must be URL-safe base64-encoded (RFC 4648, no padding) in query string
 - **No signals**: Request-response only, no push notifications
+- **No-arg functions**: Functions taking `()` omit the `?payload=` parameter entirely
+- **Default port**: 8888
 
 **Example:**
 ```bash
-# Create ResourceSpecification
-curl "http://localhost:8090/uhC0k.../nondominium/zome_resource/create_resource_specification?payload=$(echo '{"name":"3D Printer","description":"Available for sharing"}' | base64 -w0)"
+# Create ResourceSpecification (note: base64url encoding, no padding)
+PAYLOAD=$(echo -n '{"name":"3D Printer","description":"Available for sharing","category":"equipment","tags":[]}' | base64 -w0 | tr '+/' '-_' | tr -d '=')
+curl "http://localhost:8888/uhC0k.../nondominium/zome_resource/create_resource_specification?payload=${PAYLOAD}"
+
+# Get all economic resources (no payload needed)
+curl "http://localhost:8888/uhC0k.../nondominium/zome_resource/get_all_economic_resources"
 ```
 
 ### 5.2 Node.js Bridge API (Production)
@@ -356,7 +397,7 @@ The Protocol Bridge runs **server-side only**. It must never be exposed to end-u
 │   │ (Python/PHP)│─────▶│                 │─────▶│ Conductor        │    │
 │   └─────────────┘      └─────────────────┘      └──────────────────┘    │
 │         │                      │                         │              │
-│   Public:8069          localhost:3000            localhost:8888         │
+│   Public:8069      localhost:3000/8888         localhost:8888         │
 │         │                      │                         │              │
 │   ┌─────▼─────┐                │                  ┌──────▼───────┐      │
 │   │ Database  │                │                  │ Agent Keys   │      │
@@ -402,7 +443,24 @@ Each organization runs its own full stack:
                         DHT Network
 ```
 
-### 7.2 Docker Compose Configuration
+### 7.2 PoC Development Environment (Nix)
+
+The bridge repo has its own `flake.nix` providing the complete dev environment (holonix + Python 3.12 + uv). See `scripts/setup_conductor.sh` for the automated setup.
+
+```bash
+# Enter the bridge Nix dev shell (provides holochain, hc, hc-http-gw, python, uv)
+nix develop
+
+# Build the hApp (if not already built)
+cd ../nondominium && npm run build:happ && cd -
+
+# Run the setup script (starts conductor + hc-http-gw on port 8888)
+bash scripts/setup_conductor.sh
+```
+
+### 7.3 Docker Compose Configuration (Future Production)
+
+> **Note**: This Docker configuration is for future production deployment. The PoC uses Nix as described above.
 
 ```yaml
 services:
@@ -439,7 +497,7 @@ networks:
     internal: true  # No external access
 ```
 
-### 7.3 Option B: Shared Bridge Service (Managed)
+### 7.4 Option B: Shared Bridge Service (Managed)
 
 For organizations preferring managed infrastructure:
 
