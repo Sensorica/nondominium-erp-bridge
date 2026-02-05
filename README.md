@@ -10,17 +10,108 @@ This project demonstrates how organizations using centralized ERP systems can pa
 - Selective resource publishing from ERP inventory to Nondominium
 - Cross-organizational resource discovery
 - Organization-level Holochain agents (not individual users)
-- Cryptographic accountability via PPR (Private Participation Receipts)
+- Typed Python client for hc-http-gw
 
 ## Architecture
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│    ERPLibre     │     │ Protocol Bridge │     │    Holochain    │
-│   (Inventory)   │────▶│  (hc-http-gw)   │────▶│  (Nondominium)  │
+│    ERPLibre     │     │  Python Bridge  │     │    Holochain    │
+│   (Inventory)   │────>│  (hc-http-gw)   │────>│  (Nondominium)  │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
-                              HTTP                  WebSocket
+     XML-RPC              HTTP GET + base64url       DHT
 ```
+
+## Quick Start
+
+### Prerequisites
+
+- **Nix** with Holochain dev shell (provides `holochain`, `hc`, `hc-http-gw`)
+- **Python 3.10+**
+- Built `nondominium.happ` (see [Nondominium repo](https://github.com/Sensorica/nondominium))
+
+### Install
+
+```bash
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate
+
+# Install with dev dependencies
+pip install -e ".[dev]"
+```
+
+### Run Tests (no infra needed)
+
+```bash
+pytest
+```
+
+### Run with Live Infrastructure
+
+```bash
+# 1. Build the Nondominium hApp (if not done)
+cd ../nondominium && npm run build:happ && cd -
+
+# 2. Enter the Nix dev shell (provides holochain + hc-http-gw)
+cd ../nondominium && nix develop
+
+# 3. Start conductor + gateway
+bash scripts/setup_conductor.sh
+
+# 4. Discover the DNA hash and set it in .env
+cp .env.example .env
+# Edit .env and set HC_DNA_HASH from the sandbox output
+
+# 5. Run smoke test
+python scripts/smoke_test.py
+
+# 6. Create test data from mock ERP products
+python scripts/create_test_data.py
+```
+
+## Project Structure
+
+```
+nondominium-erp-bridge/
+├── .env.example                        # Environment variable template
+├── pyproject.toml                      # Python project config (PEP 621)
+├── bridge/
+│   ├── __init__.py
+│   ├── config.py                       # GatewayConfig from env vars
+│   ├── gateway_client.py               # Typed hc-http-gw client (core)
+│   ├── models.py                       # Pydantic models matching Rust types
+│   ├── mapper.py                       # ERP product → Nondominium mapping
+│   └── erp_mock.py                     # Mock ERPLibre client
+├── scripts/
+│   ├── setup_conductor.sh              # Nix-based conductor + gateway setup
+│   ├── smoke_test.py                   # Integration test (needs infra)
+│   └── create_test_data.py             # Populate Nondominium from mock ERP
+├── tests/
+│   ├── test_models.py                  # Pydantic serialization tests
+│   ├── test_gateway_client.py          # Client tests (mocked HTTP)
+│   └── test_mapper.py                  # Mapping correctness tests
+└── documentation/                      # Design docs and specs
+```
+
+## How hc-http-gw Works
+
+The bridge communicates with Holochain via [hc-http-gw](https://github.com/holochain/hc-http-gw), which exposes zome functions as HTTP GET endpoints:
+
+```
+GET {host}/{dna_hash}/{app_id}/{zome}/{fn}?payload={base64url_json}
+```
+
+- Payloads are **base64url-encoded JSON** (RFC 4648, no padding)
+- Functions taking `()` omit the `?payload=` parameter
+- Responses are JSON-transcoded Holochain data
+
+## Current Limitations
+
+- **Mock ERP only**: Uses `erp_mock.py` instead of live ERPLibre XML-RPC
+- **No bidirectional sync**: One-way ERP → Nondominium only
+- **ActionHash format**: Serialization format from hc-http-gw needs verification with a running instance
+- **Single organization**: No multi-tenant support yet
 
 ## Documentation
 
@@ -31,79 +122,9 @@ This project demonstrates how organizations using centralized ERP systems can pa
 | [Technical Specifications](documentation/specifications/erp_bridge_specifications.md) | Architecture and API details |
 | [PoC Implementation Guide](documentation/specifications/poc/hc_http_gw_poc_spec.md) | Step-by-step implementation |
 
-## Quick Start
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Python 3.10+
-- Holochain 0.4.x
-- ERPLibre (Odoo-based)
-
-### Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/Sensorica/nondominium-erplibre-poc.git
-cd nondominium-erplibre-poc
-
-# Start services
-docker-compose up -d
-
-# Run the sync script
-python bridge/sync_erp_to_nondominium.py
-```
-
-## Project Structure
-
-```
-nondominium-erplibre-poc/
-├── README.md                           # This file
-├── docker-compose.yml                  # Container orchestration
-├── documentation/
-│   ├── DOCUMENTATION_INDEX.md          # Documentation navigation
-│   ├── requirements/
-│   │   └── erp_bridge_requirements.md  # High-level requirements
-│   ├── specifications/
-│   │   ├── erp_bridge_specifications.md # Technical specs
-│   │   └── poc/
-│   │       └── hc_http_gw_poc_spec.md  # PoC implementation guide
-│   └── archives/
-│       └── erp_holochain_bridge_v1.md  # Original document (archived)
-├── bridge/                             # Python bridge scripts
-│   ├── erp_client.py                   # ERPLibre API client
-│   ├── gateway_client.py               # hc-http-gw client
-│   └── sync_erp_to_nondominium.py      # Main sync script
-└── demo/                               # Demo scripts and web UI
-```
-
-## PoC Scope
-
-### In Scope
-- ERPLibre inventory reading via XML-RPC API
-- Product → ResourceSpecification mapping
-- Cross-organizational resource discovery
-- Basic Use process initiation
-- PPR generation
-
-### Out of Scope (PoC)
-- Complex governance rules
-- Financial transactions
-- Multi-ERP support (Dolibarr, ERPNext)
-- Real-time signals/webhooks
-- Full UI integration
-
-## Phased Approach
-
-| Phase | Protocol Bridge | Features |
-|-------|-----------------|----------|
-| **PoC** (Current) | hc-http-gw | Unidirectional sync, polling |
-| **Production** | Node.js | Bidirectional, signals, webhooks |
-| **Advanced** | Python client | ML/AI integration |
-
 ## Related Projects
 
-- [Nondominium](https://github.com/Sensorica/nondominium) - ValueFlows-compliant Holochain app
+- [Nondominium](https://github.com/Sensorica/nondominium) - Holochain app (hdi 0.7.0 / hdk 0.6.0)
 - [ERPLibre](https://github.com/ERPLibre/ERPLibre) - Open-source Odoo fork
 - [hc-http-gw](https://github.com/holochain/hc-http-gw) - Holochain HTTP Gateway
 - [ValueFlows](https://www.valueflows.org/) - Economic coordination ontology
