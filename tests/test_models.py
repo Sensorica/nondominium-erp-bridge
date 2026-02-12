@@ -1,6 +1,5 @@
 """Tests for Pydantic models: serialization, field names, enum values."""
 
-
 from bridge.models import (
     CreateEconomicResourceOutput,
     CreateResourceSpecificationOutput,

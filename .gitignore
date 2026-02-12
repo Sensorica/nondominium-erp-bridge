@@ -40,3 +40,6 @@ htmlcov/
 # Nix
 result
 .direnv/
+
+# AI
+.serena/
