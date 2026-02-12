@@ -2,7 +2,7 @@
 
 > **Document Type**: Technical Specifications
 > **Version**: 1.0
-> **Last Updated**: 2026-02-05
+> **Last Updated**: 2026-02-12
 > **Related Documents**:
 > - [Requirements](../requirements/erp_bridge_requirements.md)
 > - [PoC Specification](poc/hc_http_gw_poc_spec.md)
@@ -126,6 +126,8 @@ The ERP module acts as a **Backend for Frontend (BFF)** pattern within the ERP's
 
 ### 2.2 ERPLibre Module Structure
 
+The production ERPLibre module structure (aspirational):
+
 ```
 nondominium_bridge/
 ├── __manifest__.py           # Odoo module manifest
@@ -145,6 +147,8 @@ nondominium_bridge/
     └── src/js/
         └── nondominium_widgets.js # Real-time update widgets
 ```
+
+> **Note**: A PoC Odoo addon exists at `docker/addons/nondominium_connector/` with an actual `__manifest__.py`, models (`res_config_settings.py`, `product_template.py`), and views (`res_config_settings_views.xml`, `product_template_views.xml`). It demonstrates product-to-Nondominium sync from the Odoo UI.
 
 ---
 
@@ -256,7 +260,7 @@ app.listen(3000);
 | Stock Location | Resource `current_location` field | Where the resource is physically located |
 | Available Quantity | `quantity` in `EconomicResource` | How much is available |
 | Resource State | `ResourceState` enum | `PendingValidation`, `Active`, `Maintenance`, `Retired`, `Reserved` |
-| Stock Move | `EconomicEvent` (Transfer, Use) | *Future — not yet implemented in Nondominium* |
+| Stock Move | `EconomicEvent` (Transfer, Use) | Mapped via `log_economic_event` in `zome_gouvernance` |
 
 ### 4.2 ERPLibre Model Mappings
 
@@ -311,6 +315,44 @@ Complete function list from the `zome_resource` coordinator (Holochain 0.6.x, hd
 | `get_all_governance_rules` | None | `Vec<GovernanceRule>` | List all governance rules |
 | `get_latest_governance_rule` | `ActionHash` | `GovernanceRule` | Get a specific rule by hash |
 | `update_governance_rule` | update input | updated rule | Update an existing rule |
+
+**Governance Functions (`zome_gouvernance`):**
+
+*Commitment functions:*
+
+| Function | Input | Output | Description |
+|----------|-------|--------|-------------|
+| `propose_commitment` | `ProposeCommitmentInput` | `ProposeCommitmentOutput` | Propose a resource use commitment |
+| `get_all_commitments` | None | `Vec<Commitment>` | List all commitments |
+| `get_commitments_for_agent` | `AgentPubKey` | `Vec<Commitment>` | Get commitments for a specific agent |
+| `claim_commitment` | `ClaimCommitmentInput` | `ClaimCommitmentOutput` | Claim fulfillment of a commitment |
+
+*EconomicEvent functions:*
+
+| Function | Input | Output | Description |
+|----------|-------|--------|-------------|
+| `log_economic_event` | `LogEconomicEventInput` | `LogEconomicEventOutput` | Log an economic event (Use, Transfer, etc.) |
+| `log_initial_transfer` | `LogInitialTransferInput` | `LogInitialTransferOutput` | Log an initial transfer of a resource |
+| `get_all_economic_events` | None | `Vec<EconomicEvent>` | List all economic events |
+| `get_events_for_resource` | `ActionHash` | `Vec<EconomicEvent>` | Get events for a specific resource |
+
+*Validation functions:*
+
+| Function | Input | Output | Description |
+|----------|-------|--------|-------------|
+| `create_validation_receipt` | `CreateValidationReceiptInput` | `CreateValidationReceiptOutput` | Create a validation receipt |
+| `get_validation_history` | `ActionHash` | `Vec<ValidationReceipt>` | Get validation history for an item |
+| `get_all_validation_receipts` | None | `Vec<ValidationReceipt>` | List all validation receipts |
+| `create_resource_validation` | `CreateResourceValidationInput` | `CreateResourceValidationOutput` | Create a resource validation process |
+| `check_validation_status` | `ActionHash` | validation status | Check status of a validation process |
+
+*PPR functions:*
+
+| Function | Input | Output | Description |
+|----------|-------|--------|-------------|
+| `issue_participation_receipts` | `IssueParticipationReceiptsInput` | `IssueParticipationReceiptsOutput` | Issue PPR claims for an economic event |
+| `get_my_participation_claims` | None | `Vec<PrivateParticipationClaim>` | Get current agent's PPR claims |
+| `derive_reputation_summary` | `DeriveReputationSummaryInput` | `DeriveReputationSummaryOutput` | Derive reputation summary for an agent |
 
 ---
 

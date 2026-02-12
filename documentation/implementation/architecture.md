@@ -11,32 +11,35 @@
 
 ## 1. System Overview
 
-The Nondominium-ERP Bridge is a Python application that syncs ERP inventory into Holochain's Nondominium app via the `hc-http-gw` HTTP gateway. It currently uses a mock ERP client; live ERPLibre integration is planned.
+The Nondominium-ERP Bridge is a Python application that syncs ERP inventory into Holochain's Nondominium app via the `hc-http-gw` HTTP gateway. It uses a mock ERP client (and optionally an Odoo addon) and supports two Nondominium zomes: `zome_resource` for inventory and `zome_gouvernance` for commitments, events, and PPRs.
 
 ```
-┌─────────────────┐     ┌──────────────────────────────────────────┐      ┌───────────────┐
-│   Mock ERP      │     │          Python Bridge (bridge/)         │      │  Holochain    │
-│   (erp_mock.py) │────>│                                          │─────>│ Conductor     │
-│                 │     │  MockERPClient                           │      │               │
-│  4 sample       │     │    ↓                                     │      │ Nondominium   │
-│  products       │     │  Mapper (product_to_resource_spec/...)   │      │ hApp          │
-│                 │     │    ↓                                     │      │               │
-│                 │     │  Pydantic Models (models.py)             │      │ zome_resource │
-│                 │     │    ↓                                     │      │               │
-│                 │     │  GatewayClient (gateway_client.py)       │      │               │
-│                 │     │    ↓ HTTP GET + base64url                │      │               │
-│                 │     │  hc-http-gw ─────────────────────────────│─────>│               │
-└─────────────────┘     └──────────────────────────────────────────┘      └───────────────┘
+┌──────────────────┐     ┌──────────────────────────────────────────┐      ┌───────────────┐
+│  ERP Source      │     │          Python Bridge (bridge/)         │      │  Holochain    │
+│                  │     │                                          │      │  Conductor    │
+│  MockERPClient   │────>│  Mapper → Pydantic Models → GatewayClient│─────>│               │
+│  (erp_mock.py)   │     │    ↓ HTTP GET + base64url                │      │  Nondominium  │
+│                  │     │                                          │      │  hApp         │
+│  Odoo Addon      │     │  UseProcess → GatewayClient              │      │               │
+│  (optional)      │     │    ↓ Commitment + Event + PPR            │      │ ┌───────────┐ │
+│                  │     │                                          │      │ │zome_      │ │
+└──────────────────┘     │  Discovery → GatewayClient               │      │ │resource   │ │
+                         │    ↓ Read-only DHT queries               │ ┌──> │ ├───────────┤ │
+                         │                                          │ │    │ │zome_      │ │
+                         │  hc-http-gw ─────────────────────────────│─┘    │ │gouvernance│ │
+                         └──────────────────────────────────────────┘      │ └───────────┘ │
+                                                                           └───────────────┘
                                                                                   │
                                                                             DHT Network
                                                                                   │
                                                                             Other Organizations
 ```
 
-### Two Pipelines
+### Three Pipelines
 
-1. **Sync Pipeline** (ERP -> Holochain): `erp_mock` -> `mapper` -> `models` -> `gateway_client` -> hc-http-gw -> Holochain
+1. **Sync Pipeline** (ERP -> Holochain): `erp_mock` -> `mapper` -> `models` -> `gateway_client` -> hc-http-gw -> `zome_resource`
 2. **Discovery Pipeline** (Holochain -> Python): `gateway_client` -> hc-http-gw -> Holochain DHT -> `discovery` -> Python objects
+3. **Governance Pipeline** (Use process): `use_process` -> `gateway_client` -> hc-http-gw -> `zome_gouvernance`
 
 ---
 
@@ -50,7 +53,8 @@ bridge/
 ├── gateway_client.py      # Depends on: config, models
 ├── mapper.py              # Depends on: erp_mock, models
 ├── discovery.py           # Depends on: gateway_client, models
-└── sync.py                # Depends on: erp_mock, gateway_client, mapper
+├── sync.py                # Depends on: erp_mock, gateway_client, mapper
+└── use_process.py         # Depends on: gateway_client, models
 ```
 
 Dependency direction (lower depends on upper):
@@ -60,11 +64,13 @@ Dependency direction (lower depends on upper):
              \          |  \         /    \
               \         |   \       /      \
           gateway_client.py  mapper.py      \
-               /     \                       \
-        discovery.py  sync.py ←───────────────┘
+             /   |   \                       \
+   discovery.py  |  use_process.py            \
+                 |                             |
+              sync.py ←────────────────────────┘
 ```
 
-The three leaf modules (`config`, `models`, `erp_mock`) have no internal dependencies. Higher-level modules compose them.
+The three leaf modules (`config`, `models`, `erp_mock`) have no internal dependencies. Higher-level modules compose them. The `use_process` module depends only on `gateway_client` and `models`.
 
 ---
 
@@ -136,12 +142,12 @@ Mapping of requirements (from [erp_bridge_requirements.md](../requirements/erp_b
 
 | Requirement | Status | Implementation |
 |-------------|--------|----------------|
-| **FR-1** Read ERP Inventory | Partial | `erp_mock.py` provides mock data; live ERPLibre XML-RPC not implemented |
+| **FR-1** Read ERP Inventory | Partial | `erp_mock.py` provides mock data; Odoo addon provides PoC UI. Live ERPLibre XML-RPC not implemented. |
 | **FR-2** Map to ResourceSpecification | Done | `mapper.product_to_resource_spec()` |
 | **FR-3** Publish EconomicResource | Done | `mapper.product_to_economic_resource()` + `gateway_client.create_economic_resource()` |
 | **FR-4** Discover Resources | Partial | `discovery.py` provides category-based and spec-based discovery; `discover_all()` is a stub |
-| **FR-5** Initiate Use Process | Not started | Requires `create_commitment` zome function (not in Nondominium yet) |
-| **FR-6** Record Events & PPRs | Not started | Requires `record_economic_event` zome function (not in Nondominium yet) |
+| **FR-5** Initiate Use Process | Done | `use_process.py` orchestrates `propose_commitment` via `zome_gouvernance` |
+| **FR-6** Record Events & PPRs | Done | `gateway_client.log_economic_event()` + `issue_participation_receipts()` via `zome_gouvernance` |
 
 ### Sync Pipeline (Issues #7, #8)
 
@@ -153,6 +159,24 @@ Mapping of requirements (from [erp_bridge_requirements.md](../requirements/erp_b
 | `sync_inventory.py` script | Done |
 | Cross-org discovery module | Done (`discovery.py`) |
 
+### Governance Pipeline (Issue #9)
+
+| Feature | Status |
+|---------|--------|
+| Governance models (`zome_gouvernance` types) | Done (`models.py` — 25 governance types) |
+| Multi-zome gateway client | Done (`gateway_client.py` — 19 governance methods) |
+| Use process orchestration | Done (`use_process.py`) |
+| End-to-end demo script | Done (`scripts/demo_full_flow.py`) |
+
+### Docker / Odoo Integration
+
+| Feature | Status |
+|---------|--------|
+| Docker Compose (Odoo 17 + PostgreSQL) | Done (`docker/docker-compose.yml`) |
+| Odoo `nondominium_connector` addon | Done (`docker/addons/nondominium_connector/`) |
+| Product sync from Odoo UI | Done (settings page, product form button) |
+| Tested with live Holochain infrastructure | Not done |
+
 ---
 
 ## 7. Known Gaps
@@ -162,10 +186,13 @@ Mapping of requirements (from [erp_bridge_requirements.md](../requirements/erp_b
 | **`discover_all()` is a stub** | `get_all_resource_specifications` doesn't return hashes, so specs can't be correlated to resources | Cannot enumerate all resources with their specs |
 | **Governance rules always empty** | `mapper.product_to_resource_spec()` sets `governance_rules=[]` | No access control on published resources |
 | **No location mapping** | `product_to_economic_resource()` sets `current_location=None` | Resource locations not tracked |
-| **5 untyped gateway methods** | `get_resource_specifications_by_category`, `get_my_resource_specifications`, `get_resources_by_specification`, `get_my_economic_resources`, `update_resource_state` return `Any` | No Pydantic validation on these responses |
-| **No live ERP integration** | Mock client only; ERPLibre XML-RPC not implemented | Cannot sync real inventory |
+| **Untyped gateway methods** | Several resource and governance methods return `Any` | No Pydantic validation on these responses |
+| **PPR output uses `Any`** | `IssueParticipationReceiptsOutput.claims` and `DeriveReputationSummaryOutput.summary` use `Any` | Complex cryptographic types need tightening for production |
+| **Timestamp format unverified** | Modeled as `int` (microseconds); may be `{secs, nanos}` struct from Holochain | Needs verification with a running instance |
+| **No live ERP integration** | Mock client + Odoo addon; ERPLibre XML-RPC not implemented | Cannot sync real inventory via XML-RPC |
 | **No bidirectional sync** | One-way ERP -> Nondominium only | Changes in Nondominium not reflected in ERP |
 | **ActionHash format unverified** | Serialization format from hc-http-gw needs verification with a running instance | Hashes may need format adjustments |
+| **Odoo addon not tested with live infrastructure** | Docker setup works but addon not tested with running Holochain conductor | End-to-end Odoo flow unverified |
 
 ---
 
@@ -174,8 +201,10 @@ Mapping of requirements (from [erp_bridge_requirements.md](../requirements/erp_b
 All communication with Holochain goes through HTTP GET requests:
 
 ```
-GET {host}/{dna_hash}/{app_id}/zome_resource/{fn_name}?payload={base64url_json}
+GET {host}/{dna_hash}/{app_id}/{zome}/{fn_name}?payload={base64url_json}
 ```
+
+Where `{zome}` is `zome_resource` or `zome_gouvernance`.
 
 - **Payloads**: Base64url encoded (RFC 4648), no padding (`=` stripped), compact JSON (`separators=(",", ":")`)
 - **No-arg functions**: Functions taking `()` (like `get_all_resource_specifications`) omit `?payload=` entirely

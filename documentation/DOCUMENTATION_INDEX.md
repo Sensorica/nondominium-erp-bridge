@@ -66,9 +66,9 @@ PoC-specific specification and implementation guide covering:
 **[architecture.md](implementation/architecture.md)**
 
 What is actually built — the living record of the current implementation:
-- System overview and pipeline diagrams
-- Module dependency graph (7 modules)
-- Sync and discovery data flows
+- System overview and pipeline diagrams (3 pipelines: sync, discovery, governance)
+- Module dependency graph (8 modules)
+- Sync, discovery, and governance data flows
 - Key design decisions
 - Implementation status (FR-1 to FR-6 mapping)
 - Known gaps
@@ -76,18 +76,20 @@ What is actually built — the living record of the current implementation:
 **[module-reference.md](implementation/module-reference.md)**
 
 Per-module API reference for developers:
-- All 7 bridge modules with classes, methods, and types
-- 4 scripts with descriptions
-- Test coverage summary (53 tests across 5 files)
+- All 8 bridge modules with classes, methods, and types
+- 5 scripts with descriptions (including end-to-end demo)
+- Test coverage summary (101 tests across 8 files)
 
 **[development-guide.md](implementation/development-guide.md)**
 
 Practical guide for developers:
 - Prerequisites and environment setup
-- Running tests (53 tests, no infrastructure needed)
+- Running tests (101 tests, no infrastructure needed)
 - Linting and type checking
 - Running with live infrastructure
-- Extending the bridge (adding zome functions, ERP sources, model fields)
+- Docker / Odoo development
+- Running the end-to-end demo
+- Extending the bridge (adding zome functions, ERP sources, model fields, Odoo addon)
 
 ---
 
@@ -137,6 +139,7 @@ Practical guide for developers:
 | - | - | Created dedicated PoC implementation guide | - |
 | 1.1 | 2026-02-05 | Corrected field names, zome functions, port, environment setup, and code examples to match actual Nondominium codebase and PoC scaffolding | - |
 | 1.2 | 2026-02-12 | Added implementation documentation layer (architecture, module reference, development guide). Trimmed PoC spec to remove code duplicating bridge/ modules. Updated all cross-references and counts. | - |
+| 1.3 | 2026-02-12 | Added governance bridge (`zome_gouvernance` models + gateway methods + `use_process` module). Added Docker/Odoo setup and `nondominium_connector` addon. Added end-to-end demo script. Updated all implementation docs to reflect 8 modules and 101 tests. | - |
 
 ---
 
@@ -165,7 +168,9 @@ Historical documents preserved for reference:
 ### Architecture Summary
 
 ```
-ERP (Mock) -> Python Bridge -> hc-http-gw -> Holochain Conductor -> Nondominium DHT
+ERP (Mock/Odoo) -> Python Bridge -> hc-http-gw -> Holochain Conductor -> Nondominium DHT
+                                                                          ├── zome_resource
+                                                                          └── zome_gouvernance
 ```
 
 ### PoC vs Production
@@ -176,7 +181,7 @@ ERP (Mock) -> Python Bridge -> hc-http-gw -> Holochain Conductor -> Nondominium 
 | Dev Environment | Nix dev shell | Docker / Nix |
 | Sync Direction | ERP -> Nondominium | Bidirectional |
 | Real-time | Polling | Signals + Webhooks |
-| ERP Source | Mock ERP client | Multi-ERP (ERPLibre, etc.) |
+| ERP Source | Mock ERP client + Odoo addon (PoC) | Multi-ERP (ERPLibre, etc.) |
 
 ---
 

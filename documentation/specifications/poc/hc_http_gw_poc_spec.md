@@ -76,7 +76,7 @@ GET http://{host}/{dna-hash}/{coordinator-id}/{zome}/{function}?payload={base64-
 ```bash
 # hc-http-gw configuration (set via environment when running hc-http-gw)
 HC_GW_ALLOWED_FNS_nondominium=create_resource_specification,get_all_resource_specifications,...
-# The full list of allowed functions is in scripts/setup_conductor.sh
+# The full list of allowed functions (including zome_gouvernance functions) is in scripts/setup_conductor.sh
 ```
 
 ```bash
@@ -172,77 +172,21 @@ The bridge is implemented across 7 Python modules. See the [Module Reference](..
 
 **Resource Discovery**: Implemented in `bridge/discovery.py`. See the [Module Reference](../../implementation/module-reference.md#6-discoverypy--cross-org-resource-discovery) for the full API.
 
-**Transfer Custody**:
+**Transfer Custody**: The `transfer_custody` function is bridged via `gateway_client.transfer_custody()`.
 
-The current Nondominium codebase supports `transfer_custody` as the available cross-organization action. `create_commitment` and `record_economic_event` are **not yet implemented** in the zome.
-
-```python
-# Example: transferring custody of a resource to another agent
-from bridge.config import GatewayConfig
-from bridge.gateway_client import HolochainGatewayClient
-from bridge.models import TransferCustodyInput
-
-def transfer_resource(resource_hash, new_custodian_pubkey):
-    """Transfer custody of a resource to another organization."""
-
-    gw = HolochainGatewayClient(GatewayConfig.from_env())
-
-    input_data = TransferCustodyInput(
-        resource_hash=resource_hash,
-        new_custodian=new_custodian_pubkey,
-    )
-
-    result = gw.transfer_custody(input_data)
-    print(f"Custody transferred: {result.updated_resource_hash}")
-    return result
-```
+**Governance (Commitments, Events, PPRs)**: The governance zome (`zome_gouvernance`) provides `propose_commitment`, `log_economic_event`, and PPR generation. These are fully bridged via `bridge/gateway_client.py` (19 governance methods) and orchestrated by `bridge/use_process.py`. See the [Module Reference](../../implementation/module-reference.md#8-use_processpy--use-process-orchestration) for the full API.
 
 ### 5.4 Phase 4: Demo and Documentation (Week 4)
 
-**Full Demo Script**
+**Full Demo Script**: Implemented as `scripts/demo_full_flow.py`. The demo exercises the complete bridge flow in 5 steps:
 
-```python
-"""
-ERP-Holochain Bridge PoC Demonstration
+1. **SYNC** — Publish ERP products as ResourceSpecifications and EconomicResources
+2. **DISCOVER** — Find resources by category via the DHT
+3. **COMMIT** — Propose a `VfAction.Use` commitment for a discovered resource
+4. **EVENT** — Log the economic event with optional PPR generation
+5. **VERIFY** — Query commitments, events, and validation receipts to confirm state
 
-This script demonstrates the available flow:
-1. Organization A publishes resources from ERP (mock)
-2. Organization B discovers resources via Nondominium
-3. Organization B requests custody transfer of a resource
-
-Note: Steps for create_commitment and record_economic_event are
-future scope — these zome functions do not yet exist in Nondominium.
-"""
-
-from bridge.config import GatewayConfig
-from bridge.erp_mock import MockERPClient
-from bridge.gateway_client import HolochainGatewayClient
-from bridge.mapper import product_to_resource_spec, product_to_economic_resource
-
-def demo():
-    # Setup clients
-    erp = MockERPClient()
-    gw = HolochainGatewayClient(GatewayConfig.from_env())
-
-    # Step 1: Publish resources from mock ERP
-    products = erp.get_available_products()
-    for product in products:
-        spec_input = product_to_resource_spec(product)
-        spec_result = gw.create_resource_specification(spec_input)
-        resource_input = product_to_economic_resource(product, spec_result.spec_hash)
-        gw.create_economic_resource(resource_input)
-
-    # Step 2: Discover resources
-    result = gw.get_all_economic_resources()
-    for r in result.resources:
-        print(f"  Found: {r.quantity} {r.unit} (state: {r.state.value})")
-
-    # Step 3: Transfer custody available via transfer_custody()
-    # Step 4-5 (future): create_commitment, record_economic_event
-
-if __name__ == '__main__':
-    demo()
-```
+See the [Development Guide](../../implementation/development-guide.md#55-running-the-end-to-end-demo) for instructions on running the demo.
 
 ---
 
@@ -250,13 +194,13 @@ if __name__ == '__main__':
 
 ### 7.1 Unit Tests
 
-The project includes 53 tests across 5 test files. See the [Development Guide](../../implementation/development-guide.md#3-running-tests) for test commands and the [Module Reference](../../implementation/module-reference.md#9-test-coverage-summary) for per-file coverage details.
+The project includes 101 tests across 8 test files. See the [Development Guide](../../implementation/development-guide.md#3-running-tests) for test commands and the [Module Reference](../../implementation/module-reference.md#10-test-coverage-summary) for per-file coverage details.
 
 ### 7.2 Integration Test Checklist
 
 | Test Case | Expected Result | Pass/Fail |
 |-----------|-----------------|-----------|
-| Python tests pass | `pytest -v` reports 53 passed | |
+| Python tests pass | `pytest -v` reports 101 passed | |
 | hc-http-gw reachable | `curl http://localhost:8888/` returns response | |
 | Create ResourceSpecification | Returns `CreateResourceSpecificationOutput` with `spec_hash` | |
 | Create EconomicResource | Returns `CreateEconomicResourceOutput` with `resource_hash` | |
@@ -264,6 +208,9 @@ The project includes 53 tests across 5 test files. See the [Development Guide](.
 | Get all resource specifications | Returns `GetAllResourceSpecificationsOutput` | |
 | Transfer custody | Returns `TransferCustodyOutput` with updated resource | |
 | Update resource state | Returns updated resource with new state | |
+| Propose commitment | Returns `ProposeCommitmentOutput` with `commitment_hash` | |
+| Log economic event | Returns `LogEconomicEventOutput` with `event_hash` | |
+| Get all commitments | Returns list of `Commitment` objects | |
 
 ### 7.3 Validation Procedures
 
@@ -305,9 +252,10 @@ print('Health check:', gw.health_check())
 |------------|--------|-------------------|
 | Unidirectional sync | PoC scope | Implement bidirectional in production |
 | Single ERP | ERPLibre focus | Add Dolibarr, ERPNext modules |
-| No UI integration | PoC uses scripts | Build Odoo module UI |
 | Periodic polling | No real-time | Add signal/webhook support |
-| Mock ERP only | Live ERPLibre not implemented | Implement XML-RPC client |
+| Mock ERP + Odoo addon (PoC) | Live ERPLibre XML-RPC not implemented | Implement full XML-RPC client |
+| PPR output types use `Any` | Complex cryptographic types | Tighten Pydantic models for production |
+| Timestamp format unverified | May be `{secs, nanos}` struct | Verify with running Holochain instance |
 
 ### 8.3 Workarounds
 
@@ -358,13 +306,13 @@ def poll_for_changes(bridge, interval_seconds=60):
 
 ### 9.3 Feature Additions
 
-| Feature | Priority | Effort |
-|---------|----------|--------|
-| Bidirectional sync | High | Medium |
-| Real-time signals | High | Medium |
-| ERPLibre Odoo module | Medium | High |
-| Multi-ERP support | Medium | High |
-| PPR dashboard | Low | Medium |
+| Feature | Priority | Effort | Status |
+|---------|----------|--------|--------|
+| Bidirectional sync | High | Medium | Not started |
+| Real-time signals | High | Medium | Not started |
+| ERPLibre Odoo module | Medium | High | Partially done (PoC addon at `docker/addons/nondominium_connector/`) |
+| Multi-ERP support | Medium | High | Not started |
+| PPR dashboard | Low | Medium | Not started |
 
 ---
 

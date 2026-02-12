@@ -2,7 +2,7 @@
 
 > **Document Type**: High-Level Requirements
 > **Version**: 1.0
-> **Last Updated**: 2026-02-05
+> **Last Updated**: 2026-02-12
 > **Related Documents**:
 > - [Technical Specifications](../specifications/erp_bridge_specifications.md)
 > - [PoC Implementation Guide](../specifications/poc/hc_http_gw_poc_spec.md)
@@ -124,14 +124,14 @@ Other Organizations
 | **FR-2** | Map to ResourceSpecification | Must Have | Map ERPLibre products to Nondominium `ResourceSpecification` entries |
 | **FR-3** | Publish EconomicResource | Must Have | Publish selected inventory items as `EconomicResource` entries in Nondominium |
 | **FR-4** | Discover Resources | Must Have | Query Nondominium for available resources from other organizations |
-| **FR-5** | Initiate Use Process | Future | Initiate a `Use` process in Nondominium for a discovered resource *(requires `create_commitment` zome function — not yet implemented)* |
-| **FR-6** | Record Events & PPRs | Future | Record the `EconomicEvent` and generate PPRs for both parties *(requires `record_economic_event` zome function — not yet implemented)* |
+| **FR-5** | Initiate Use Process | Done | Initiate a `Use` process in Nondominium for a discovered resource. Implemented via `propose_commitment` in `zome_gouvernance`. Bridge support: `bridge/use_process.py` |
+| **FR-6** | Record Events & PPRs | Done | Record the `EconomicEvent` and generate PPRs for both parties. Implemented via `log_economic_event` and `issue_participation_receipts` in `zome_gouvernance`. Bridge support: `bridge/gateway_client.py` |
 
 ### PoC Implementation Status
 
 For the current implementation status of each requirement, see [Implementation Architecture — Section 6](../implementation/architecture.md#6-implementation-status).
 
-Summary: FR-1 (partial — mock ERP only), FR-2 (done), FR-3 (done), FR-4 (partial — `discover_all()` is a stub), FR-5 and FR-6 (not started — require unimplemented zome functions).
+Summary: FR-1 (partial — mock ERP + Odoo addon), FR-2 (done), FR-3 (done), FR-4 (partial — `discover_all()` is a stub), FR-5 (done — bridge + zome), FR-6 (done — bridge + zome).
 
 ### 5.2 Production Functional Requirements (Future)
 
@@ -171,14 +171,14 @@ Summary: FR-1 (partial — mock ERP only), FR-2 (done), FR-3 (done), FR-4 (parti
 
 ### 7.1 In Scope (PoC)
 
-- ERPLibre inventory reading via XML-RPC API
+- ERPLibre inventory reading via XML-RPC API (mock ERP + Odoo addon for PoC)
 - Product → ResourceSpecification mapping
 - Stock → EconomicResource mapping
 - Cross-organizational resource discovery
 - Custody transfer between organizations
+- Use process initiation (commitments via `zome_gouvernance`)
+- Economic event recording and PPR generation (via `zome_gouvernance`)
 - HTTP Gateway (`hc-http-gw`) as protocol bridge
-
-> **Note**: Use process initiation (FR-5) and PPR generation (FR-6) are **future scope** — the `create_commitment` and `record_economic_event` zome functions do not yet exist in the Nondominium codebase. The PoC demonstrates `transfer_custody` as the available cross-org action.
 
 ### 7.2 Out of Scope (PoC)
 
@@ -203,7 +203,7 @@ Summary: FR-1 (partial — mock ERP only), FR-2 (done), FR-3 (done), FR-4 (parti
 | Product Variant | `EconomicResource` | Specific instance available for sharing (uses `spec_hash`, `current_location`, `custodian`, `state`) |
 | Stock Location | Resource `current_location` field | Where the resource is physically located |
 | Available Quantity | `quantity` in `EconomicResource` | How much is available |
-| Stock Move | `EconomicEvent` (Transfer, Use) | *Future — not yet implemented in Nondominium* |
+| Stock Move | `EconomicEvent` (Transfer, Use) | Mapped via `log_economic_event` in `zome_gouvernance` |
 
 ### 8.2 ERPLibre-Specific Mappings
 
@@ -211,7 +211,7 @@ Summary: FR-1 (partial — mock ERP only), FR-2 (done), FR-3 (done), FR-4 (parti
 |----------------|---------|-----------|
 | `product.product` | Individual products | `ResourceSpecification` + `EconomicResource` |
 | `stock.quant` | Available quantities per location | `quantity` field |
-| `stock.move` | Movement history and planned transfers | *Future: `EconomicEvent`* |
+| `stock.move` | Movement history and planned transfers | `EconomicEvent` via `log_economic_event` |
 | `stock.warehouse` | Physical locations | `current_location` field |
 
 ---
@@ -228,8 +228,8 @@ Demonstrate that inventory from two organizations running ERPLibre can be synchr
 2. **Organization B** has a laser cutter listed in its ERPLibre inventory
 3. Both organizations **publish** their available equipment to Nondominium
 4. Each organization can **discover** the other's equipment via Nondominium
-5. Organization B requests **custody transfer** of Organization A's 3D printer via `transfer_custody`
-6. *(Future)* The usage is **recorded** as an `EconomicEvent` in Nondominium — requires zome functions not yet implemented
+5. Organization B requests **use** of Organization A's 3D printer via `propose_commitment`
+6. The usage is **recorded** as an `EconomicEvent` in Nondominium via `log_economic_event`, with PPR generation
 7. *(Future)* The usage is **reflected back** to Organization A's ERPLibre as a "Loan" or "External Use" stock move
 
 ### 9.3 Acceptance Criteria
@@ -238,9 +238,9 @@ Demonstrate that inventory from two organizations running ERPLibre can be synchr
 |-----------|---------------------|
 | Products correctly mapped | Compare ERP data with Nondominium entries |
 | Cross-org discovery works | Org B can see Org A's resources |
-| Custody transfer works | Org B can request custody of Org A's resource |
-| *(Future)* Use process records event | Verify EconomicEvent in DHT |
-| *(Future)* PPRs generated | Both parties have participation receipts |
+| Use process proposes commitment | Verify Commitment in DHT via `propose_commitment` |
+| Use process records event | Verify EconomicEvent in DHT via `log_economic_event` |
+| PPRs generated | Both parties have participation receipts via `issue_participation_receipts` |
 
 ---
 
