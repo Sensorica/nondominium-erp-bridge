@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Extend product template form with Nondominium sync -->
+    <record id="view_product_template_nondominium" model="ir.ui.view">
+        <field name="name">product.template.nondominium</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_only_form_view"/>
+        <field name="arch" type="xml">
+            <!-- Add "Sync to Nondominium" button in header -->
+            <xpath expr="//sheet" position="before">
+                <header>
+                    <button name="action_sync_to_nondominium"
+                            type="object"
+                            string="Sync to Nondominium"
+                            class="btn-primary"
+                            icon="fa-cloud-upload"/>
+                </header>
+            </xpath>
+
+            <!-- Add Nondominium tab to notebook -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Nondominium" name="nondominium">
+                    <group>
+                        <group string="Sync Status">
+                            <field name="nondominium_synced" widget="boolean_toggle"/>
+                            <field name="nondominium_sync_date"/>
+                        </group>
+                        <group string="Nondominium References">
+                            <field name="nondominium_spec_hash"/>
+                            <field name="nondominium_resource_hash"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Add sync status to product tree view -->
+    <record id="view_product_template_tree_nondominium" model="ir.ui.view">
+        <field name="name">product.template.tree.nondominium</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_tree_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='type']" position="after">
+                <field name="nondominium_synced" string="ND Synced" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

@@ -36,3 +36,5 @@ strict = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["integration: requires live Holochain conductor + hc-http-gw"]
+addopts = "-m 'not integration'"

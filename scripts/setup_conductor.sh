@@ -78,6 +78,7 @@ echo "  HC_DNA_HASH=<the hash from the output above>"
 echo
 
 # 4. List allowed zome functions for hc-http-gw
+# --- zome_resource functions ---
 ALLOWED_FNS="create_resource_specification,get_all_resource_specifications"
 ALLOWED_FNS="${ALLOWED_FNS},get_latest_resource_specification,get_resource_specification_with_rules"
 ALLOWED_FNS="${ALLOWED_FNS},get_resource_specifications_by_category,get_resource_specifications_by_tag"
@@ -92,6 +93,15 @@ ALLOWED_FNS="${ALLOWED_FNS},create_governance_rule,get_all_governance_rules"
 ALLOWED_FNS="${ALLOWED_FNS},get_latest_governance_rule,update_governance_rule"
 ALLOWED_FNS="${ALLOWED_FNS},get_governance_rule_profile,get_my_governance_rules"
 ALLOWED_FNS="${ALLOWED_FNS},get_governance_rules_by_type"
+
+# --- zome_gouvernance functions ---
+ALLOWED_FNS="${ALLOWED_FNS},propose_commitment,get_all_commitments,get_commitments_for_agent"
+ALLOWED_FNS="${ALLOWED_FNS},claim_commitment,get_all_claims,get_claims_for_commitment"
+ALLOWED_FNS="${ALLOWED_FNS},log_economic_event,log_initial_transfer"
+ALLOWED_FNS="${ALLOWED_FNS},get_all_economic_events,get_events_for_resource,get_events_for_agent"
+ALLOWED_FNS="${ALLOWED_FNS},create_validation_receipt,get_validation_history,get_all_validation_receipts"
+ALLOWED_FNS="${ALLOWED_FNS},create_resource_validation,check_validation_status"
+ALLOWED_FNS="${ALLOWED_FNS},issue_participation_receipts,get_my_participation_claims,derive_reputation_summary"
 
 # 5. Start hc-http-gw
 echo "Starting hc-http-gw..."

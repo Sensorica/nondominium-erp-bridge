@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Configuration form view -->
+    <record id="view_nondominium_config_form" model="ir.ui.view">
+        <field name="name">nondominium.config.form</field>
+        <field name="model">nondominium.config</field>
+        <field name="arch" type="xml">
+            <form string="Nondominium Configuration">
+                <sheet>
+                    <group>
+                        <group string="Gateway Connection">
+                            <field name="name"/>
+                            <field name="hc_gw_url"/>
+                            <field name="hc_dna_hash"/>
+                            <field name="hc_app_id"/>
+                            <field name="active"/>
+                        </group>
+                    </group>
+                    <footer>
+                        <button name="action_test_connection"
+                                type="object"
+                                string="Test Connection"
+                                class="btn-primary"/>
+                    </footer>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Configuration tree view -->
+    <record id="view_nondominium_config_tree" model="ir.ui.view">
+        <field name="name">nondominium.config.tree</field>
+        <field name="model">nondominium.config</field>
+        <field name="arch" type="xml">
+            <tree string="Nondominium Configurations">
+                <field name="name"/>
+                <field name="hc_gw_url"/>
+                <field name="hc_app_id"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Menu action -->
+    <record id="action_nondominium_config" model="ir.actions.act_window">
+        <field name="name">Nondominium Configuration</field>
+        <field name="res_model">nondominium.config</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <!-- Settings menu item -->
+    <menuitem id="menu_nondominium_config"
+              name="Nondominium"
+              parent="stock.menu_stock_config_settings"
+              action="action_nondominium_config"
+              sequence="100"/>
+
+</odoo>
