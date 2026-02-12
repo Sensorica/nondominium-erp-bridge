@@ -19,11 +19,13 @@ uv pip install -e ".[dev]"
 ## Commands
 
 ```bash
-# Tests (34 total, no infrastructure needed)
+# Tests (53 total, no infrastructure needed)
 pytest                              # all tests
-pytest tests/test_models.py         # Pydantic model serialization (23 tests)
-pytest tests/test_gateway_client.py # HTTP client with mocked server (11 tests)
-pytest tests/test_mapper.py         # ERP→Nondominium mapping (9 tests)
+pytest tests/test_models.py         # Pydantic model serialization (13 tests)
+pytest tests/test_gateway_client.py # HTTP client with mocked server (13 tests)
+pytest tests/test_mapper.py         # ERP→Nondominium mapping (8 tests)
+pytest tests/test_discovery.py      # Cross-org resource discovery (8 tests)
+pytest tests/test_sync.py           # Sync pipeline + idempotency (11 tests)
 pytest -k "test_name"               # single test by name
 
 # Linting & type checking
@@ -35,6 +37,7 @@ mypy bridge/                        # strict type checking
 bash scripts/setup_conductor.sh     # start conductor + gateway
 python scripts/smoke_test.py        # integration test
 python scripts/create_test_data.py  # populate from mock ERP
+python scripts/sync_inventory.py    # run full sync pipeline
 ```
 
 ## Architecture
@@ -43,13 +46,15 @@ python scripts/create_test_data.py  # populate from mock ERP
 ERP (Mock) → Mapper → Pydantic Models → GatewayClient → hc-http-gw → Holochain
 ```
 
-Five modules in `bridge/`, each with a single responsibility:
+Seven modules in `bridge/`, each with a single responsibility:
 
 - **config.py** — `GatewayConfig` frozen dataclass, loads from env vars (`HC_GW_URL`, `HC_GW_TIMEOUT`, `HC_APP_ID`, `HC_DNA_HASH`)
 - **models.py** — Pydantic v2 models mapping 1:1 to Rust zome types in `nondominium/dnas/nondominium/zomes/`. Three categories: integrity types (on-chain data), coordinator inputs, coordinator outputs
 - **gateway_client.py** — `HolochainGatewayClient` wrapping all `zome_resource` coordinator functions as typed Python methods. Handles base64url encoding and HTTP communication
 - **mapper.py** — Pure functions converting `MockProduct` → `ResourceSpecificationInput` / `EconomicResourceInput`
 - **erp_mock.py** — `MockERPClient` simulating ERPLibre's `product.product` model with 4 sample Sensorica fab-lab products
+- **discovery.py** — `ResourceDiscovery` providing cross-org resource discovery via the Nondominium DHT (category-based search, spec-based lookup)
+- **sync.py** — `NondominiumBridge` orchestrating the full sync pipeline with `SyncState` (JSON-file idempotency) and per-item error handling
 
 ## hc-http-gw Protocol
 

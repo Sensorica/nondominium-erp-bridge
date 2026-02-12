@@ -83,15 +83,20 @@ nondominium-erp-bridge/
 │   ├── gateway_client.py               # Typed hc-http-gw client (core)
 │   ├── models.py                       # Pydantic models matching Rust types
 │   ├── mapper.py                       # ERP product → Nondominium mapping
-│   └── erp_mock.py                     # Mock ERPLibre client
+│   ├── erp_mock.py                     # Mock ERPLibre client
+│   ├── discovery.py                    # Cross-org resource discovery
+│   └── sync.py                         # Inventory sync pipeline
 ├── scripts/
 │   ├── setup_conductor.sh              # Nix-based conductor + gateway setup
 │   ├── smoke_test.py                   # Integration test (needs infra)
-│   └── create_test_data.py             # Populate Nondominium from mock ERP
+│   ├── create_test_data.py             # Populate Nondominium from mock ERP
+│   └── sync_inventory.py              # Run full sync pipeline
 ├── tests/
-│   ├── test_models.py                  # Pydantic serialization tests
-│   ├── test_gateway_client.py          # Client tests (mocked HTTP)
-│   └── test_mapper.py                  # Mapping correctness tests
+│   ├── test_models.py                  # Pydantic serialization tests (13)
+│   ├── test_gateway_client.py          # Client tests with mocked HTTP (13)
+│   ├── test_mapper.py                  # Mapping correctness tests (8)
+│   ├── test_discovery.py              # Discovery module tests (8)
+│   └── test_sync.py                   # Sync pipeline tests (11)
 └── documentation/                      # Design docs and specs
 ```
 
@@ -121,7 +126,10 @@ GET {host}/{dna_hash}/{app_id}/{zome}/{fn}?payload={base64url_json}
 | [Documentation Index](documentation/DOCUMENTATION_INDEX.md) | Navigation hub for all documentation |
 | [Requirements](documentation/requirements/erp_bridge_requirements.md) | High-level requirements and business goals |
 | [Technical Specifications](documentation/specifications/erp_bridge_specifications.md) | Architecture and API details |
-| [PoC Implementation Guide](documentation/specifications/poc/hc_http_gw_poc_spec.md) | Step-by-step implementation |
+| [PoC Specification](documentation/specifications/poc/hc_http_gw_poc_spec.md) | PoC implementation plan |
+| [Architecture](documentation/implementation/architecture.md) | Actual system architecture and data flows |
+| [Module Reference](documentation/implementation/module-reference.md) | Per-module API documentation |
+| [Development Guide](documentation/implementation/development-guide.md) | Setup, testing, extending |
 
 ## Related Projects
 

@@ -5,7 +5,9 @@
 > **Last Updated**: 2026-02-05
 > **Related Documents**:
 > - [Requirements](../requirements/erp_bridge_requirements.md)
-> - [PoC Implementation Guide](poc/hc_http_gw_poc_spec.md)
+> - [PoC Specification](poc/hc_http_gw_poc_spec.md)
+> - [Implementation Architecture](../implementation/architecture.md)
+> - [Module Reference](../implementation/module-reference.md)
 
 ---
 

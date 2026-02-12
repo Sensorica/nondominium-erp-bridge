@@ -127,6 +127,12 @@ Other Organizations
 | **FR-5** | Initiate Use Process | Future | Initiate a `Use` process in Nondominium for a discovered resource *(requires `create_commitment` zome function — not yet implemented)* |
 | **FR-6** | Record Events & PPRs | Future | Record the `EconomicEvent` and generate PPRs for both parties *(requires `record_economic_event` zome function — not yet implemented)* |
 
+### PoC Implementation Status
+
+For the current implementation status of each requirement, see [Implementation Architecture — Section 6](../implementation/architecture.md#6-implementation-status).
+
+Summary: FR-1 (partial — mock ERP only), FR-2 (done), FR-3 (done), FR-4 (partial — `discover_all()` is a stub), FR-5 and FR-6 (not started — require unimplemented zome functions).
+
 ### 5.2 Production Functional Requirements (Future)
 
 | ID | Requirement | Priority | Description |

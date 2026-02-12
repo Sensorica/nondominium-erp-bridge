@@ -1,7 +1,7 @@
 # Documentation Index
 
 > **Nondominium-ERP Bridge Project Documentation**
-> **Last Updated**: 2026-02-05
+> **Last Updated**: 2026-02-12
 
 ---
 
@@ -11,7 +11,10 @@
 |----------|---------|----------|
 | [Requirements](requirements/erp_bridge_requirements.md) | High-level requirements, business goals, scope | Product Owners, Stakeholders |
 | [Technical Specifications](specifications/erp_bridge_specifications.md) | Architecture, APIs, security, deployment | Developers, Architects |
-| [PoC Implementation Guide](specifications/poc/hc_http_gw_poc_spec.md) | Step-by-step PoC setup and code | Developers |
+| [PoC Implementation Guide](specifications/poc/hc_http_gw_poc_spec.md) | PoC specification and implementation plan | Developers |
+| [Architecture](implementation/architecture.md) | Actual system architecture, data flows, status | Developers |
+| [Module Reference](implementation/module-reference.md) | Per-module API documentation | Developers |
+| [Development Guide](implementation/development-guide.md) | Setup, testing, extending | Developers |
 
 ---
 
@@ -29,7 +32,7 @@ High-level requirements document covering:
 - Non-functional requirements (NFR-1 to NFR-4)
 - Scope boundaries and PoC scenario
 - Data mapping requirements
-- Phased approach (PoC → Production → Advanced)
+- Phased approach (PoC -> Production -> Advanced)
 
 ### Technical Specifications
 
@@ -50,14 +53,41 @@ Detailed technical specifications covering:
 
 **[hc_http_gw_poc_spec.md](specifications/poc/hc_http_gw_poc_spec.md)**
 
-PoC-specific implementation guide covering:
+PoC-specific specification and implementation guide covering:
 - hc-http-gw configuration and limitations
-- ERPLibre integration code
+- ERPLibre integration plan (aspirational)
 - Step-by-step implementation phases
-- Complete code examples
 - Testing and validation procedures
 - Known limitations and workarounds
 - Next steps after PoC
+
+### Implementation Documentation
+
+**[architecture.md](implementation/architecture.md)**
+
+What is actually built — the living record of the current implementation:
+- System overview and pipeline diagrams
+- Module dependency graph (7 modules)
+- Sync and discovery data flows
+- Key design decisions
+- Implementation status (FR-1 to FR-6 mapping)
+- Known gaps
+
+**[module-reference.md](implementation/module-reference.md)**
+
+Per-module API reference for developers:
+- All 7 bridge modules with classes, methods, and types
+- 4 scripts with descriptions
+- Test coverage summary (53 tests across 5 files)
+
+**[development-guide.md](implementation/development-guide.md)**
+
+Practical guide for developers:
+- Prerequisites and environment setup
+- Running tests (53 tests, no infrastructure needed)
+- Linting and type checking
+- Running with live infrastructure
+- Extending the bridge (adding zome functions, ERP sources, model fields)
 
 ---
 
@@ -79,11 +109,18 @@ PoC-specific implementation guide covering:
 │  │ (Technical Details) │                                            │
 │  └──────────┬──────────┘                                            │
 │             │                                                       │
-│             │ Implements                                            │
+│             │ Guides                                                │
 │             v                                                       │
 │  ┌─────────────────────┐                                            │
-│  │   POC SPEC          │ <── Immediate implementation details       │
-│  │ (Implementation)    │                                            │
+│  │   POC SPEC          │ <── Planned approach and phases            │
+│  │ (Specification)     │                                            │
+│  └──────────┬──────────┘                                            │
+│             │                                                       │
+│             │ Realized as                                            │
+│             v                                                       │
+│  ┌─────────────────────┐                                            │
+│  │  IMPLEMENTATION     │ <── WHAT IS actually built                 │
+│  │ (Living Reference)  │     architecture, modules, dev guide       │
 │  └─────────────────────┘                                            │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
@@ -99,6 +136,7 @@ PoC-specific implementation guide covering:
 | - | - | Separated requirements from specifications | - |
 | - | - | Created dedicated PoC implementation guide | - |
 | 1.1 | 2026-02-05 | Corrected field names, zome functions, port, environment setup, and code examples to match actual Nondominium codebase and PoC scaffolding | - |
+| 1.2 | 2026-02-12 | Added implementation documentation layer (architecture, module reference, development guide). Trimmed PoC spec to remove code duplicating bridge/ modules. Updated all cross-references and counts. | - |
 
 ---
 
@@ -118,7 +156,7 @@ Historical documents preserved for reference:
 
 | Term | Definition |
 |------|------------|
-| **Protocol Bridge** | Reusable HTTP↔WebSocket adapter for Holochain |
+| **Protocol Bridge** | Reusable HTTP->WebSocket adapter for Holochain |
 | **ERP Module** | ERP-specific integration layer (data mapping, UI) |
 | **hc-http-gw** | Holochain HTTP Gateway for PoC |
 | **Organization Agent** | Holochain agent representing an organization (not individual users) |
@@ -127,7 +165,7 @@ Historical documents preserved for reference:
 ### Architecture Summary
 
 ```
-ERP (ERPLibre) ←→ Python Bridge ←→ hc-http-gw ←→ Holochain Conductor ←→ Nondominium DHT
+ERP (Mock) -> Python Bridge -> hc-http-gw -> Holochain Conductor -> Nondominium DHT
 ```
 
 ### PoC vs Production
@@ -136,9 +174,9 @@ ERP (ERPLibre) ←→ Python Bridge ←→ hc-http-gw ←→ Holochain Conductor
 |--------|-----|------------|
 | Protocol Bridge | hc-http-gw (via Python client) | Node.js |
 | Dev Environment | Nix dev shell | Docker / Nix |
-| Sync Direction | ERP → Nondominium | Bidirectional |
+| Sync Direction | ERP -> Nondominium | Bidirectional |
 | Real-time | Polling | Signals + Webhooks |
-| ERP Support | Mock ERP (ERPLibre planned) | Multi-ERP |
+| ERP Source | Mock ERP client | Multi-ERP (ERPLibre, etc.) |
 
 ---
 
@@ -146,10 +184,11 @@ ERP (ERPLibre) ←→ Python Bridge ←→ hc-http-gw ←→ Holochain Conductor
 
 When updating documentation:
 
-1. **Requirements changes** → Update `requirements/erp_bridge_requirements.md`
-2. **Architecture changes** → Update `specifications/erp_bridge_specifications.md`
-3. **Implementation changes** → Update `specifications/poc/hc_http_gw_poc_spec.md`
-4. **Version updates** → Update this index
+1. **Requirements changes** -> Update `requirements/erp_bridge_requirements.md`
+2. **Architecture changes** -> Update `specifications/erp_bridge_specifications.md`
+3. **PoC specification changes** -> Update `specifications/poc/hc_http_gw_poc_spec.md`
+4. **Implementation changes** -> Update docs in `implementation/` (architecture, module-reference, development-guide)
+5. **Version updates** -> Update this index
 
 ---
 
