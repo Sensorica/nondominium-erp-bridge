@@ -19,7 +19,7 @@ This project demonstrates how organizations using centralized ERP systems can pa
 │    ERPLibre     │     │  Python Bridge  │     │    Holochain    │
 │   (Inventory)   │────>│  (hc-http-gw)   │────>│  (Nondominium)  │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
-     XML-RPC              HTTP GET + base64url       DHT
+     XML-RPC            HTTP GET + base64url            DHT
 ```
 
 ## Quick Start
