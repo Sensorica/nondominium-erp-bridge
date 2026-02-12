@@ -1,10 +1,13 @@
 """Typed Python client for Nondominium via hc-http-gw.
 
 hc-http-gw exposes Holochain zome functions as HTTP GET endpoints:
-    GET {host}/{dna_hash}/{zome}/{fn}?payload={base64url_json}
+    GET {host}/{dna_hash}/{app_id}/{zome}/{fn}?payload={base64_json}
 
-Payloads are base64url-encoded JSON (RFC 4648 URL-safe, no padding).
+Payloads are standard base64-encoded JSON (with padding).
 Functions that take `()` omit the `?payload=` parameter entirely.
+
+Hash values (ActionHash, AgentPubKey) are byte arrays in the JSON payload
+due to hc-http-gw v0.3.x msgpack-to-JSON transcoding.
 """
 
 from __future__ import annotations
@@ -47,6 +50,7 @@ from bridge.models import (
     TransferCustodyOutput,
     UpdateResourceStateInput,
     ValidationReceipt,
+    hash_to_bytes,
 )
 
 
@@ -75,9 +79,12 @@ class HolochainGatewayClient:
 
     @staticmethod
     def _encode_payload(data: Any) -> str:
-        """Base64url-encode a JSON payload (no padding)."""
+        """Base64-encode a JSON payload for hc-http-gw.
+
+        hc-http-gw v0.3.x expects standard base64 with padding.
+        """
         json_bytes = json.dumps(data, separators=(",", ":")).encode()
-        return base64.urlsafe_b64encode(json_bytes).rstrip(b"=").decode()
+        return base64.b64encode(json_bytes).decode()
 
     def _call(self, fn_name: str, payload: Any | None = None, zome: str = "zome_resource") -> Any:
         """Call a zome function via hc-http-gw and return parsed JSON."""
@@ -115,13 +122,13 @@ class HolochainGatewayClient:
         return GetAllResourceSpecificationsOutput.model_validate(data)
 
     def get_latest_resource_specification(self, action_hash: str) -> ResourceSpecification:
-        data = self._call("get_latest_resource_specification", action_hash)
+        data = self._call("get_latest_resource_specification", hash_to_bytes(action_hash))
         return ResourceSpecification.model_validate(data)
 
     def get_resource_specification_with_rules(
         self, spec_hash: str
     ) -> GetResourceSpecWithRulesOutput:
-        data = self._call("get_resource_specification_with_rules", spec_hash)
+        data = self._call("get_resource_specification_with_rules", hash_to_bytes(spec_hash))
         return GetResourceSpecWithRulesOutput.model_validate(data)
 
     def get_resource_specifications_by_category(self, category: str) -> Any:
@@ -146,11 +153,11 @@ class HolochainGatewayClient:
         return GetAllEconomicResourcesOutput.model_validate(data)
 
     def get_latest_economic_resource(self, action_hash: str) -> EconomicResource:
-        data = self._call("get_latest_economic_resource", action_hash)
+        data = self._call("get_latest_economic_resource", hash_to_bytes(action_hash))
         return EconomicResource.model_validate(data)
 
     def get_resources_by_specification(self, spec_hash: str) -> Any:
-        return self._call("get_resources_by_specification", spec_hash)
+        return self._call("get_resources_by_specification", hash_to_bytes(spec_hash))
 
     def get_my_economic_resources(self) -> Any:
         return self._call("get_my_economic_resources")
@@ -189,7 +196,9 @@ class HolochainGatewayClient:
         return [Commitment.model_validate(c) for c in data]
 
     def get_commitments_for_agent(self, agent_pub_key: str) -> list[Commitment]:
-        data = self._call("get_commitments_for_agent", agent_pub_key, zome=self.ZOME_GOUVERNANCE)
+        data = self._call(
+            "get_commitments_for_agent", hash_to_bytes(agent_pub_key), zome=self.ZOME_GOUVERNANCE
+        )
         return [Commitment.model_validate(c) for c in data]
 
     def claim_commitment(self, input_data: ClaimCommitmentInput) -> ClaimCommitmentOutput:
@@ -204,7 +213,9 @@ class HolochainGatewayClient:
         return self._call("get_all_claims", zome=self.ZOME_GOUVERNANCE)
 
     def get_claims_for_commitment(self, commitment_hash: str) -> Any:
-        return self._call("get_claims_for_commitment", commitment_hash, zome=self.ZOME_GOUVERNANCE)
+        return self._call(
+            "get_claims_for_commitment", hash_to_bytes(commitment_hash), zome=self.ZOME_GOUVERNANCE
+        )
 
     # --- EconomicEvent functions (zome_gouvernance) ---
 
@@ -228,10 +239,14 @@ class HolochainGatewayClient:
         return self._call("get_all_economic_events", zome=self.ZOME_GOUVERNANCE)
 
     def get_events_for_resource(self, resource_hash: str) -> Any:
-        return self._call("get_events_for_resource", resource_hash, zome=self.ZOME_GOUVERNANCE)
+        return self._call(
+            "get_events_for_resource", hash_to_bytes(resource_hash), zome=self.ZOME_GOUVERNANCE
+        )
 
     def get_events_for_agent(self, agent_pub_key: str) -> Any:
-        return self._call("get_events_for_agent", agent_pub_key, zome=self.ZOME_GOUVERNANCE)
+        return self._call(
+            "get_events_for_agent", hash_to_bytes(agent_pub_key), zome=self.ZOME_GOUVERNANCE
+        )
 
     # --- Validation functions (zome_gouvernance) ---
 
@@ -246,7 +261,9 @@ class HolochainGatewayClient:
         return CreateValidationReceiptOutput.model_validate(data)
 
     def get_validation_history(self, item_hash: str) -> list[ValidationReceipt]:
-        data = self._call("get_validation_history", item_hash, zome=self.ZOME_GOUVERNANCE)
+        data = self._call(
+            "get_validation_history", hash_to_bytes(item_hash), zome=self.ZOME_GOUVERNANCE
+        )
         return [ValidationReceipt.model_validate(r) for r in data]
 
     def get_all_validation_receipts(self) -> list[ValidationReceipt]:
@@ -264,7 +281,11 @@ class HolochainGatewayClient:
         return CreateResourceValidationOutput.model_validate(data)
 
     def check_validation_status(self, validation_hash: str) -> Any:
-        return self._call("check_validation_status", validation_hash, zome=self.ZOME_GOUVERNANCE)
+        return self._call(
+            "check_validation_status",
+            hash_to_bytes(validation_hash),
+            zome=self.ZOME_GOUVERNANCE,
+        )
 
     # --- PPR functions (zome_gouvernance) ---
 

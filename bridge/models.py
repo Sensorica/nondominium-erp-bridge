@@ -15,10 +15,41 @@ These models map 1:1 to the Holochain zome types defined in:
 
 from __future__ import annotations
 
+import base64
 from enum import Enum
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field, PlainSerializer
+
+
+def _coerce_hash(v: Any) -> str:
+    """Accept both a base64 string and a byte-array list (hc-http-gw v0.3.x format)."""
+    if isinstance(v, str):
+        return v
+    if isinstance(v, list):
+        return base64.urlsafe_b64encode(bytes(v)).rstrip(b"=").decode()
+    raise ValueError(f"Expected str or list[int] for hash, got {type(v)}")
+
+
+def hash_to_bytes(v: str) -> list[int]:
+    """Convert a hash string back to byte array for hc-http-gw v0.3.x.
+
+    Accepts both Holochain display format (u-prefixed, e.g. "uhCkk...")
+    and raw base64url (e.g. "hCkk..." from _coerce_hash).
+    """
+    raw_b64 = v[1:] if v.startswith("u") else v
+    padded = raw_b64 + "=" * (-len(raw_b64) % 4)
+    return list(base64.urlsafe_b64decode(padded))
+
+
+# Output type: coerces byte-array responses to base64url strings for Python use.
+HolochainHash = Annotated[str, BeforeValidator(_coerce_hash)]
+
+# Input type: accepts strings in Python, serializes to byte arrays for gateway JSON.
+HolochainHashInput = Annotated[
+    str,
+    PlainSerializer(hash_to_bytes, return_type=list, when_used="json"),
+]
 
 # ============================================================
 # zome_resource — Integrity types (stored on-chain)
@@ -59,7 +90,7 @@ class EconomicResource(BaseModel):
 
     quantity: float
     unit: str
-    custodian: str  # AgentPubKey serialized as base64 string
+    custodian: HolochainHash  # AgentPubKey (byte array from gw v0.3.x)
     current_location: str | None = None
     state: ResourceState = ResourceState.PENDING_VALIDATION
 
@@ -89,7 +120,7 @@ class ResourceSpecificationInput(BaseModel):
 class EconomicResourceInput(BaseModel):
     """Maps to coordinator::EconomicResourceInput."""
 
-    spec_hash: str  # ActionHash serialized by hc-http-gw
+    spec_hash: HolochainHashInput  # ActionHash → byte array in JSON
     quantity: float
     unit: str
     current_location: str | None = None
@@ -98,15 +129,15 @@ class EconomicResourceInput(BaseModel):
 class TransferCustodyInput(BaseModel):
     """Maps to coordinator::TransferCustodyInput."""
 
-    resource_hash: str  # ActionHash
-    new_custodian: str  # AgentPubKey
+    resource_hash: HolochainHashInput  # ActionHash
+    new_custodian: HolochainHashInput  # AgentPubKey
     request_contact_info: bool | None = None
 
 
 class UpdateResourceStateInput(BaseModel):
     """Maps to coordinator::UpdateResourceStateInput."""
 
-    resource_hash: str  # ActionHash
+    resource_hash: HolochainHashInput  # ActionHash
     new_state: ResourceState
 
 
@@ -116,9 +147,9 @@ class UpdateResourceStateInput(BaseModel):
 class CreateResourceSpecificationOutput(BaseModel):
     """Maps to coordinator::CreateResourceSpecificationOutput."""
 
-    spec_hash: str  # ActionHash
+    spec_hash: HolochainHash  # ActionHash
     spec: ResourceSpecification
-    governance_rule_hashes: list[str] = Field(default_factory=list)
+    governance_rule_hashes: list[HolochainHash] = Field(default_factory=list)
 
 
 class GetAllResourceSpecificationsOutput(BaseModel):
@@ -137,7 +168,7 @@ class GetResourceSpecWithRulesOutput(BaseModel):
 class CreateEconomicResourceOutput(BaseModel):
     """Maps to coordinator::CreateEconomicResourceOutput."""
 
-    resource_hash: str  # ActionHash
+    resource_hash: HolochainHash  # ActionHash
     resource: EconomicResource
 
 
@@ -150,7 +181,7 @@ class GetAllEconomicResourcesOutput(BaseModel):
 class TransferCustodyOutput(BaseModel):
     """Maps to coordinator::TransferCustodyOutput."""
 
-    updated_resource_hash: str  # ActionHash
+    updated_resource_hash: HolochainHash  # ActionHash
     updated_resource: EconomicResource
 
 
@@ -319,9 +350,9 @@ class ProposeCommitmentInput(BaseModel):
     """Maps to coordinator::ProposeCommitmentInput."""
 
     action: VfAction
-    resource_hash: str | None = None  # ActionHash
-    resource_spec_hash: str | None = None  # ActionHash
-    provider: str  # AgentPubKey
+    resource_hash: HolochainHashInput | None = None  # ActionHash
+    resource_spec_hash: HolochainHashInput | None = None  # ActionHash
+    provider: HolochainHashInput  # AgentPubKey
     due_date: int  # Holochain Timestamp
     note: str | None = None
 
@@ -329,7 +360,7 @@ class ProposeCommitmentInput(BaseModel):
 class ClaimCommitmentInput(BaseModel):
     """Maps to coordinator::ClaimCommitmentInput."""
 
-    commitment_hash: str  # ActionHash
+    commitment_hash: HolochainHashInput  # ActionHash
     fulfillment_note: str | None = None
 
 
@@ -337,27 +368,27 @@ class LogEconomicEventInput(BaseModel):
     """Maps to coordinator::LogEconomicEventInput."""
 
     action: VfAction
-    provider: str  # AgentPubKey
-    receiver: str  # AgentPubKey
-    resource_inventoried_as: str  # ActionHash
+    provider: HolochainHashInput  # AgentPubKey
+    receiver: HolochainHashInput  # AgentPubKey
+    resource_inventoried_as: HolochainHashInput  # ActionHash
     resource_quantity: float
     note: str | None = None
-    commitment_hash: str | None = None  # ActionHash
+    commitment_hash: HolochainHashInput | None = None  # ActionHash
     generate_pprs: bool | None = None
 
 
 class LogInitialTransferInput(BaseModel):
     """Maps to coordinator::LogInitialTransferInput."""
 
-    resource_hash: str  # ActionHash
-    receiver: str  # AgentPubKey
+    resource_hash: HolochainHashInput  # ActionHash
+    receiver: HolochainHashInput  # AgentPubKey
     quantity: float
 
 
 class CreateValidationReceiptInput(BaseModel):
     """Maps to coordinator::CreateValidationReceiptInput."""
 
-    validated_item: str  # ActionHash
+    validated_item: HolochainHashInput  # ActionHash
     validation_type: str
     approved: bool
     notes: str | None = None
@@ -366,7 +397,7 @@ class CreateValidationReceiptInput(BaseModel):
 class CreateResourceValidationInput(BaseModel):
     """Maps to coordinator::CreateResourceValidationInput."""
 
-    resource: str  # ActionHash
+    resource: HolochainHashInput  # ActionHash
     validation_scheme: str
     required_validators: int
 
@@ -374,14 +405,14 @@ class CreateResourceValidationInput(BaseModel):
 class IssueParticipationReceiptsInput(BaseModel):
     """Maps to coordinator::IssueParticipationReceiptsInput."""
 
-    fulfills: str  # ActionHash — Commitment
-    fulfilled_by: str  # ActionHash — EconomicEvent
-    provider: str  # AgentPubKey
-    receiver: str  # AgentPubKey
+    fulfills: HolochainHashInput  # ActionHash — Commitment
+    fulfilled_by: HolochainHashInput  # ActionHash — EconomicEvent
+    provider: HolochainHashInput  # AgentPubKey
+    receiver: HolochainHashInput  # AgentPubKey
     claim_types: list[ParticipationClaimType]
     provider_metrics: PerformanceMetrics
     receiver_metrics: PerformanceMetrics
-    resource_hash: str | None = None  # ActionHash
+    resource_hash: HolochainHashInput | None = None  # ActionHash
     notes: str | None = None
 
 
@@ -401,21 +432,21 @@ class DeriveReputationSummaryInput(BaseModel):
 class ProposeCommitmentOutput(BaseModel):
     """Maps to coordinator::ProposeCommitmentOutput."""
 
-    commitment_hash: str  # ActionHash
+    commitment_hash: HolochainHash  # ActionHash
     commitment: Commitment
 
 
 class ClaimCommitmentOutput(BaseModel):
     """Maps to coordinator::ClaimCommitmentOutput."""
 
-    claim_hash: str  # ActionHash
+    claim_hash: HolochainHash  # ActionHash
     claim: Claim
 
 
 class LogEconomicEventOutput(BaseModel):
     """Maps to coordinator::LogEconomicEventOutput."""
 
-    event_hash: str  # ActionHash
+    event_hash: HolochainHash  # ActionHash
     event: EconomicEvent
     ppr_claims: Any | None = None  # IssueParticipationReceiptsOutput (complex nested type)
 
@@ -423,7 +454,7 @@ class LogEconomicEventOutput(BaseModel):
 class LogInitialTransferOutput(BaseModel):
     """Maps to coordinator::LogInitialTransferOutput."""
 
-    event_hash: str  # ActionHash
+    event_hash: HolochainHash  # ActionHash
     event: EconomicEvent
     ppr_claims: Any | None = None
 
@@ -431,14 +462,14 @@ class LogInitialTransferOutput(BaseModel):
 class CreateValidationReceiptOutput(BaseModel):
     """Maps to coordinator::CreateValidationReceiptOutput."""
 
-    receipt_hash: str  # ActionHash
+    receipt_hash: HolochainHash  # ActionHash
     receipt: ValidationReceipt
 
 
 class CreateResourceValidationOutput(BaseModel):
     """Maps to coordinator::CreateResourceValidationOutput."""
 
-    validation_hash: str  # ActionHash
+    validation_hash: HolochainHash  # ActionHash
     validation: ResourceValidation
 
 
@@ -449,8 +480,8 @@ class IssueParticipationReceiptsOutput(BaseModel):
     with CryptographicSignature (raw bytes). Typed as Any for PoC.
     """
 
-    provider_claim_hash: str  # ActionHash
-    receiver_claim_hash: str  # ActionHash
+    provider_claim_hash: HolochainHash  # ActionHash
+    receiver_claim_hash: HolochainHash  # ActionHash
     provider_claim: Any = None  # PrivateParticipationClaim
     receiver_claim: Any = None  # PrivateParticipationClaim
 

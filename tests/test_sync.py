@@ -54,9 +54,22 @@ def bridge(client: HolochainGatewayClient, state_path: Path) -> NondominiumBridg
     )
 
 
-def _mock_spec_response(spec_hash: str, name: str, category: str) -> dict:
+def _fake_action_hash(seed: int) -> list[int]:
+    """Create a fake ActionHash byte array (mimics hc-http-gw v0.3.x response format).
+
+    Real ActionHash is 39 bytes; we use shorter fakes since only round-trip matters.
+    """
+    return [132, 41, 36, seed, 0, 0]
+
+
+def _fake_agent_hash() -> list[int]:
+    """Fake AgentPubKey byte array."""
+    return [132, 32, 36, 99, 0, 0]
+
+
+def _mock_spec_response(product_id: int, name: str, category: str) -> dict:
     return {
-        "spec_hash": spec_hash,
+        "spec_hash": _fake_action_hash(product_id),
         "spec": {
             "name": name,
             "description": "test",
@@ -69,13 +82,13 @@ def _mock_spec_response(spec_hash: str, name: str, category: str) -> dict:
     }
 
 
-def _mock_resource_response(resource_hash: str) -> dict:
+def _mock_resource_response(product_id: int) -> dict:
     return {
-        "resource_hash": resource_hash,
+        "resource_hash": _fake_action_hash(product_id + 100),
         "resource": {
             "quantity": 1.0,
             "unit": "unit",
-            "custodian": "uhCAkAgent",
+            "custodian": _fake_agent_hash(),
             "state": "PendingValidation",
         },
     }
@@ -83,14 +96,12 @@ def _mock_resource_response(resource_hash: str) -> dict:
 
 def _register_product_handlers(httpserver: HTTPServer, product_id: int, name: str, cat: str):
     """Register spec+resource creation handlers for one product."""
-    spec_hash = f"uhCkkSpec{product_id}"
-    resource_hash = f"uhCkkRes{product_id}"
     httpserver.expect_ordered_request(
         _zome_path("create_resource_specification"),
-    ).respond_with_json(_mock_spec_response(spec_hash, name, cat))
+    ).respond_with_json(_mock_spec_response(product_id, name, cat))
     httpserver.expect_ordered_request(
         _zome_path("create_economic_resource"),
-    ).respond_with_json(_mock_resource_response(resource_hash))
+    ).respond_with_json(_mock_resource_response(product_id))
 
 
 # --- SyncState tests ---
@@ -225,7 +236,7 @@ class TestSyncPipeline:
         # First product: spec ok, resource fails
         httpserver.expect_ordered_request(
             _zome_path("create_resource_specification"),
-        ).respond_with_json(_mock_spec_response("uhCkkSpec1", products[0].name, "equipment"))
+        ).respond_with_json(_mock_spec_response(products[0].id, products[0].name, "equipment"))
         httpserver.expect_ordered_request(
             _zome_path("create_economic_resource"),
         ).respond_with_data("Error", status=500)

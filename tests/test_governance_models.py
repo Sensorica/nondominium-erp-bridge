@@ -118,8 +118,8 @@ class TestCommitment:
     def test_optional_fields(self):
         c = Commitment(
             action=VfAction.TRANSFER,
-            provider="uhCAkA",
-            receiver="uhCAkB",
+            provider="uhCAkAA",
+            receiver="uhCAkBB",
             resource_inventoried_as="uhCkkRes",
             resource_conforms_to="uhCkkSpec",
             input_of="uhCkkProcess",
@@ -134,8 +134,8 @@ class TestCommitment:
     def test_round_trip(self):
         c = Commitment(
             action=VfAction.USE,
-            provider="uhCAkA",
-            receiver="uhCAkB",
+            provider="uhCAkAA",
+            receiver="uhCAkBB",
             due_date=1700000000000000,
             committed_at=1699000000000000,
         )
@@ -164,8 +164,8 @@ class TestEconomicEvent:
     def test_optional_note(self):
         e = EconomicEvent(
             action=VfAction.PRODUCE,
-            provider="uhCAkA",
-            receiver="uhCAkB",
+            provider="uhCAkAA",
+            receiver="uhCAkBB",
             resource_inventoried_as="uhCkkRes",
             affects="uhCkkRes",
             resource_quantity=10.0,
@@ -179,12 +179,12 @@ class TestClaim:
     def test_serialization(self):
         c = Claim(
             fulfills="uhCkkCommitment",
-            fulfilled_by="uhCkkEvent",
+            fulfilled_by="uhCkkEventAA",
             claimed_at=1700000000000000,
         )
         data = c.model_dump(mode="json")
         assert data["fulfills"] == "uhCkkCommitment"
-        assert data["fulfilled_by"] == "uhCkkEvent"
+        assert data["fulfilled_by"] == "uhCkkEventAA"
         assert data["note"] is None
 
 
@@ -267,13 +267,13 @@ class TestProposeCommitmentInput:
         )
         data = inp.model_dump(mode="json")
         assert data["action"] == "Use"
-        assert data["resource_hash"] == "uhCkkRes"
+        assert isinstance(data["resource_hash"], list)
         assert data["resource_spec_hash"] is None
 
     def test_minimal_fields(self):
         inp = ProposeCommitmentInput(
             action=VfAction.TRANSFER,
-            provider="uhCAkA",
+            provider="uhCAkAA",
             due_date=1700000000000000,
         )
         data = inp.model_dump(mode="json")
@@ -300,8 +300,8 @@ class TestLogEconomicEventInput:
     def test_optional_fields(self):
         inp = LogEconomicEventInput(
             action=VfAction.PRODUCE,
-            provider="uhCAkA",
-            receiver="uhCAkB",
+            provider="uhCAkAA",
+            receiver="uhCAkBB",
             resource_inventoried_as="uhCkkRes",
             resource_quantity=10.0,
         )
@@ -318,7 +318,7 @@ class TestLogInitialTransferInput:
             quantity=5.0,
         )
         data = inp.model_dump(mode="json")
-        assert data["resource_hash"] == "uhCkkRes"
+        assert isinstance(data["resource_hash"], list)
         assert data["quantity"] == 5.0
 
 
@@ -333,7 +333,7 @@ class TestIssueParticipationReceiptsInput:
         )
         inp = IssueParticipationReceiptsInput(
             fulfills="uhCkkCommit",
-            fulfilled_by="uhCkkEvent",
+            fulfilled_by="uhCkkEventAA",
             provider="uhCAkProvider",
             receiver="uhCAkReceiver",
             claim_types=[
@@ -374,8 +374,8 @@ class TestGovernanceOutputModels:
             "commitment_hash": "uhCkkCommit",
             "commitment": {
                 "action": "Use",
-                "provider": "uhCAkA",
-                "receiver": "uhCAkB",
+                "provider": "uhCAkAA",
+                "receiver": "uhCAkBB",
                 "resource_inventoried_as": "uhCkkRes",
                 "resource_conforms_to": None,
                 "input_of": None,
@@ -393,7 +393,7 @@ class TestGovernanceOutputModels:
             "claim_hash": "uhCkkClaim",
             "claim": {
                 "fulfills": "uhCkkCommit",
-                "fulfilled_by": "uhCkkEvent",
+                "fulfilled_by": "uhCkkEventAA",
                 "claimed_at": 1700000000000000,
                 "note": None,
             },
@@ -403,11 +403,11 @@ class TestGovernanceOutputModels:
 
     def test_log_economic_event_output(self):
         data = {
-            "event_hash": "uhCkkEvent",
+            "event_hash": "uhCkkEventAA",
             "event": {
                 "action": "Use",
-                "provider": "uhCAkA",
-                "receiver": "uhCAkB",
+                "provider": "uhCAkAA",
+                "receiver": "uhCAkBB",
                 "resource_inventoried_as": "uhCkkRes",
                 "affects": "uhCkkRes",
                 "resource_quantity": 1.0,
@@ -422,11 +422,11 @@ class TestGovernanceOutputModels:
 
     def test_log_initial_transfer_output(self):
         data = {
-            "event_hash": "uhCkkEvent",
+            "event_hash": "uhCkkEventAA",
             "event": {
                 "action": "InitialTransfer",
-                "provider": "uhCAkA",
-                "receiver": "uhCAkB",
+                "provider": "uhCAkAA",
+                "receiver": "uhCAkBB",
                 "resource_inventoried_as": "uhCkkRes",
                 "affects": "uhCkkRes",
                 "resource_quantity": 5.0,

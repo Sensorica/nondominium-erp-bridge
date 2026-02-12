@@ -44,32 +44,32 @@ class TestURLConstruction:
         assert client._base_url() == expected
 
 
-class TestBase64URLEncoding:
+class TestBase64Encoding:
     def test_encode_dict(self):
         payload = {"name": "test", "value": 42}
         encoded = HolochainGatewayClient._encode_payload(payload)
-        # Decode and verify
-        padded = encoded + "=" * (4 - len(encoded) % 4)
-        decoded = json.loads(base64.urlsafe_b64decode(padded))
+        decoded = json.loads(base64.b64decode(encoded))
         assert decoded == payload
 
     def test_encode_string(self):
         payload = "uhCkkSomeHash"
         encoded = HolochainGatewayClient._encode_payload(payload)
-        padded = encoded + "=" * (4 - len(encoded) % 4)
-        decoded = json.loads(base64.urlsafe_b64decode(padded))
+        decoded = json.loads(base64.b64decode(encoded))
         assert decoded == payload
 
-    def test_no_padding_chars(self):
-        """Base64url output should not contain = padding."""
-        encoded = HolochainGatewayClient._encode_payload({"key": "value"})
-        assert "=" not in encoded
+    def test_standard_base64_with_padding(self):
+        """hc-http-gw v0.3.x requires standard base64 with = padding."""
+        # Use a payload whose JSON is not a multiple of 3 bytes
+        encoded = HolochainGatewayClient._encode_payload({"k": "v"})
+        # Standard base64 pads to multiple of 4
+        assert len(encoded) % 4 == 0
 
-    def test_url_safe_chars(self):
-        """Should use - and _ instead of + and /."""
-        encoded = HolochainGatewayClient._encode_payload({"data": "a+b/c=d"})
-        assert "+" not in encoded
-        assert "/" not in encoded
+    def test_compact_json(self):
+        """Payload should use compact JSON (no spaces)."""
+        payload = {"name": "test", "value": 42}
+        encoded = HolochainGatewayClient._encode_payload(payload)
+        decoded_str = base64.b64decode(encoded).decode()
+        assert " " not in decoded_str
 
 
 class TestNullPayload:

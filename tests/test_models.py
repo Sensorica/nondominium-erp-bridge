@@ -1,5 +1,7 @@
 """Tests for Pydantic models: serialization, field names, enum values."""
 
+import base64
+
 from bridge.models import (
     CreateEconomicResourceOutput,
     CreateResourceSpecificationOutput,
@@ -13,6 +15,7 @@ from bridge.models import (
     TransferCustodyInput,
     TransferCustodyOutput,
     UpdateResourceStateInput,
+    hash_to_bytes,
 )
 
 
@@ -173,8 +176,19 @@ class TestTransferCustodyInput:
             request_contact_info=True,
         )
         data = inp.model_dump(mode="json")
-        assert data["resource_hash"] == "uhCkkRes"
+        # Hash fields serialize to byte arrays for hc-http-gw v0.3.x
+        assert isinstance(data["resource_hash"], list)
+        assert isinstance(data["new_custodian"], list)
         assert data["request_contact_info"] is True
+
+    def test_python_mode_preserves_strings(self):
+        inp = TransferCustodyInput(
+            resource_hash="uhCkkRes",
+            new_custodian="uhCAkNew",
+        )
+        data = inp.model_dump()
+        assert data["resource_hash"] == "uhCkkRes"
+        assert data["new_custodian"] == "uhCAkNew"
 
 
 class TestUpdateResourceStateInput:
@@ -185,3 +199,50 @@ class TestUpdateResourceStateInput:
         )
         data = inp.model_dump(mode="json")
         assert data["new_state"] == "Active"
+        assert isinstance(data["resource_hash"], list)  # byte array for gateway
+
+
+class TestHashRoundTrip:
+    """Verify hash byte-array ↔ string round-trip for hc-http-gw v0.3.x."""
+
+    def test_hash_to_bytes_with_u_prefix(self):
+        """Holochain display format: u + base64url(raw_bytes)."""
+        raw_bytes = [132, 41, 36, 1, 2, 3]
+        b64 = "u" + base64.urlsafe_b64encode(bytes(raw_bytes)).rstrip(b"=").decode()
+        assert hash_to_bytes(b64) == raw_bytes
+
+    def test_hash_to_bytes_without_u_prefix(self):
+        """Raw base64url from _coerce_hash (no u-prefix)."""
+        raw_bytes = [132, 41, 36, 4, 5, 6]
+        b64 = base64.urlsafe_b64encode(bytes(raw_bytes)).rstrip(b"=").decode()
+        assert hash_to_bytes(b64) == raw_bytes
+
+    def test_coerce_then_to_bytes_round_trip(self):
+        """byte array → _coerce_hash → hash_to_bytes → original byte array."""
+        original = [132, 41, 36, 10, 20, 30, 40, 50, 60, 70]
+        output = CreateEconomicResourceOutput.model_validate(
+            {
+                "resource_hash": original,
+                "resource": {
+                    "quantity": 1.0,
+                    "unit": "unit",
+                    "custodian": [132, 32, 36, 99, 99, 99],
+                    "state": "Active",
+                },
+            }
+        )
+        # _coerce_hash converted byte array to base64url string
+        assert isinstance(output.resource_hash, str)
+        # hash_to_bytes converts back to byte array
+        assert hash_to_bytes(output.resource_hash) == original
+
+    def test_input_model_json_produces_byte_array(self):
+        """EconomicResourceInput.model_dump(mode='json') serializes hashes as byte arrays."""
+        resource = EconomicResourceInput(
+            spec_hash="uhCkkSomeHash",
+            quantity=2.0,
+            unit="unit",
+        )
+        data = resource.model_dump(mode="json")
+        assert isinstance(data["spec_hash"], list)
+        assert all(isinstance(b, int) for b in data["spec_hash"])

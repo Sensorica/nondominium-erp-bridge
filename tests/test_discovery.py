@@ -102,7 +102,7 @@ class TestGetResourcesForSpec:
             _zome_path("get_resources_by_specification"),
         ).respond_with_json([])
 
-        resources = discovery.get_resources_for_spec("uhCkkEmptySpec")
+        resources = discovery.get_resources_for_spec("uhCkkEmptySpecAA")
         assert resources == []
 
 
@@ -120,7 +120,7 @@ class TestCheckAvailability:
             _zome_path("get_resources_by_specification"),
         ).respond_with_json([])
 
-        count = discovery.check_availability("uhCkkEmptySpec")
+        count = discovery.check_availability("uhCkkEmptySpecAA")
         assert count == 0
 
 

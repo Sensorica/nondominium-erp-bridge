@@ -159,13 +159,13 @@ class TestLogEconomicEvent:
             _gov_path("log_economic_event"),
         ).respond_with_json(
             {
-                "event_hash": "uhCkkE",
+                "event_hash": "uhCkkEE",
                 "event": {
                     "action": "Use",
-                    "provider": "uhCAkA",
-                    "receiver": "uhCAkB",
-                    "resource_inventoried_as": "uhCkkR",
-                    "affects": "uhCkkR",
+                    "provider": "uhCAkAA",
+                    "receiver": "uhCAkBB",
+                    "resource_inventoried_as": "uhCkkRR",
+                    "affects": "uhCkkRR",
                     "resource_quantity": 1.0,
                     "event_time": 1700000000000000,
                 },
@@ -176,9 +176,9 @@ class TestLogEconomicEvent:
         client.log_economic_event(
             LogEconomicEventInput(
                 action=VfAction.USE,
-                provider="uhCAkA",
-                receiver="uhCAkB",
-                resource_inventoried_as="uhCkkR",
+                provider="uhCAkAA",
+                receiver="uhCAkBB",
+                resource_inventoried_as="uhCkkRR",
                 resource_quantity=1.0,
             )
         )
