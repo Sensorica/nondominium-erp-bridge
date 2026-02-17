@@ -1,3 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_nondominium_config_user,nondominium.config.user,model_nondominium_config,base.group_user,1,0,0,0
-access_nondominium_config_manager,nondominium.config.manager,model_nondominium_config,stock.group_stock_manager,1,1,1,1

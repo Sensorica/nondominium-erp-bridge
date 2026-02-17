@@ -53,10 +53,11 @@ echo
 
 # 2. Create sandbox
 echo "Creating sandbox conductor..."
-mkdir -p "$SANDBOX_DIR"
 
 hc sandbox clean 2>/dev/null || true
-hc sandbox generate "$HAPP_PATH" \
+rm -rf "$SANDBOX_DIR"
+mkdir -p "$(dirname "$SANDBOX_DIR")"
+echo "pass" | hc sandbox --piped generate "$HAPP_PATH" \
     --run 0 \
     --directories "$SANDBOX_DIR" \
     2>&1 | tee /tmp/hc-sandbox-output.txt &
@@ -65,10 +66,27 @@ CONDUCTOR_PID=$!
 echo "Conductor PID: $CONDUCTOR_PID"
 echo
 
-# Wait for conductor to start
-sleep 5
+# 3. Wait for conductor to start and discover admin WebSocket port
+echo "Waiting for conductor to start..."
+ADMIN_PORT=""
+for i in $(seq 1 30); do
+    ADMIN_PORT=$(grep -oP '"admin_port":\K[0-9]+' /tmp/hc-sandbox-output.txt 2>/dev/null | tail -1 || true)
+    if [ -n "$ADMIN_PORT" ] && [ "$ADMIN_PORT" != "0" ]; then
+        break
+    fi
+    ADMIN_PORT=""
+    sleep 1
+done
+if [ -z "$ADMIN_PORT" ]; then
+    echo -e "${RED}ERROR: Conductor did not report admin port within 30 seconds${NC}"
+    echo "  Check /tmp/hc-sandbox-output.txt for errors."
+    exit 1
+fi
+export HC_GW_ADMIN_WS_URL="ws://127.0.0.1:${ADMIN_PORT}"
+echo -e "${GREEN}  Admin WS URL: ${HC_GW_ADMIN_WS_URL}${NC}"
+echo
 
-# 3. Discover DNA hash
+# 4. Discover DNA hash
 echo -e "${YELLOW}=== IMPORTANT ===${NC}"
 echo "To discover the DNA hash, run in another terminal:"
 echo "  hc sandbox call list-apps --directories ${SANDBOX_DIR}"
@@ -77,7 +95,7 @@ echo "Then set it in your .env file:"
 echo "  HC_DNA_HASH=<the hash from the output above>"
 echo
 
-# 4. List allowed zome functions for hc-http-gw
+# 5. List allowed zome functions for hc-http-gw
 # --- zome_resource functions ---
 ALLOWED_FNS="create_resource_specification,get_all_resource_specifications"
 ALLOWED_FNS="${ALLOWED_FNS},get_latest_resource_specification,get_resource_specification_with_rules"
@@ -103,13 +121,15 @@ ALLOWED_FNS="${ALLOWED_FNS},create_validation_receipt,get_validation_history,get
 ALLOWED_FNS="${ALLOWED_FNS},create_resource_validation,check_validation_status"
 ALLOWED_FNS="${ALLOWED_FNS},issue_participation_receipts,get_my_participation_claims,derive_reputation_summary"
 
-# 5. Start hc-http-gw
+# 6. Start hc-http-gw
 echo "Starting hc-http-gw..."
+echo "  Admin WS URL: ${HC_GW_ADMIN_WS_URL}"
 echo "  Allowed functions: ${ALLOWED_FNS}"
 echo
 
 if command -v hc-http-gw &>/dev/null; then
-    HC_GW_ALLOWED_FNS_nondominium="$ALLOWED_FNS" \
+    HC_GW_ADMIN_WS_URL="$HC_GW_ADMIN_WS_URL" \
+        HC_GW_ALLOWED_FNS_nondominium="$ALLOWED_FNS" \
         hc-http-gw \
         --port 8888 &
     GW_PID=$!
@@ -121,7 +141,7 @@ else
     echo "  cargo install holochain_http_gateway"
     echo
     echo "Or start it manually with:"
-    echo "  HC_GW_ALLOWED_FNS_nondominium=\"${ALLOWED_FNS}\" hc-http-gw --port 8888"
+    echo "  HC_GW_ADMIN_WS_URL=\"${HC_GW_ADMIN_WS_URL}\" HC_GW_ALLOWED_FNS_nondominium=\"${ALLOWED_FNS}\" hc-http-gw --port 8888"
 fi
 
 echo

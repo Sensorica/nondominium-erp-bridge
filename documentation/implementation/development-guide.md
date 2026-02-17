@@ -12,6 +12,7 @@
 
 - **Nix** with flakes enabled (`experimental-features = nix-command flakes` in `~/.config/nix/nix.conf`)
 - **nondominium.happ** built from the [Nondominium repo](https://github.com/Sensorica/nondominium) (needed for live infrastructure only, not for tests)
+- **HC HTTP Gateway**
 
 ---
 
@@ -199,6 +200,7 @@ The demo executes 5 steps:
 |----------|---------|-------------|
 | `HC_GW_URL` | `http://127.0.0.1:8888` | hc-http-gw URL |
 | `HC_GW_TIMEOUT` | `30` | Request timeout (seconds) |
+| `HC_GW_ADMIN_WS_URL` | (auto-discovered) | Admin WebSocket URL (`ws://`) for hc-http-gw → conductor connection |
 | `HC_APP_ID` | `nondominium` | Holochain app ID |
 | `HC_DNA_HASH` | (none) | DNA hash from `hc sandbox call list-apps` |
 
