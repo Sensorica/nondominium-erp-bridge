@@ -166,7 +166,7 @@ Mapping of requirements (from [erp_bridge_requirements.md](../requirements/erp_b
 
 | Requirement | Status | Implementation |
 |-------------|--------|----------------|
-| **FR-1** Read ERP Inventory | Partial | `erp_mock.py` provides mock data; Odoo addon provides PoC UI. Live ERPLibre XML-RPC not implemented. |
+| **FR-1** Read ERP Inventory | Partial | `erp_mock.py` provides mock data; Odoo addon (in [external repo](https://github.com/Sensorica/odoo-addons-nondominium)) provides PoC UI. Live ERPLibre XML-RPC not implemented. |
 | **FR-2** Map to ResourceSpecification | Done | `mapper.product_to_resource_spec()` |
 | **FR-3** Publish EconomicResource | Done | `mapper.product_to_economic_resource()` + `gateway_client.create_economic_resource()` |
 | **FR-4** Discover Resources | Partial | `discovery.py` provides category-based and spec-based discovery; `discover_all()` is a stub |
@@ -192,16 +192,9 @@ Mapping of requirements (from [erp_bridge_requirements.md](../requirements/erp_b
 | Use process orchestration | Done (`use_process.py`) |
 | End-to-end demo script | Done (`scripts/demo_full_flow.py`) |
 
-### Docker / Odoo Integration
+### Odoo / ERPLibre Addon (External Repo)
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Docker Compose (Odoo 17 + PostgreSQL) | Done | `docker/docker-compose.yml` |
-| Odoo `nondominium_connector` addon | Done | `docker/addons/nondominium_connector/` — two models (`nondominium.config`, `product.template` extension), settings page, product form button |
-| Product sync from Odoo UI | Done | Creates ResourceSpecification + EconomicResource, records hashes on product |
-| Addon calls hc-http-gw directly | Current state | Duplicates bridge protocol logic (base64url encoding, URL construction) |
-| Refactor addon to call bridge REST API | Planned | Decision made: addon will call the Python bridge instead of hc-http-gw directly |
-| Tested with live Holochain infrastructure | Not done | Addon not tested with running conductor + hc-http-gw |
+The Odoo `nondominium_connector` addon has been moved to its own repository: **[odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)**. It provides Docker Compose setup (Odoo 17 + PostgreSQL), product sync from Odoo UI, and configuration views. The addon currently calls hc-http-gw directly; the planned refactoring to call the Python bridge REST API is tracked in that repo.
 
 ---
 
@@ -216,11 +209,11 @@ Mapping of requirements (from [erp_bridge_requirements.md](../requirements/erp_b
 | **Untyped gateway methods** | Several resource and governance methods return `Any` | No Pydantic validation on these responses |
 | **PPR output uses `Any`** | `IssueParticipationReceiptsOutput.claims` and `DeriveReputationSummaryOutput.summary` use `Any` | Complex cryptographic types need tightening for production |
 | **Timestamp format unverified** | Modeled as `int` (microseconds); may be `{secs, nanos}` struct from Holochain | Needs verification with a running instance |
-| **No live ERP integration** | Mock client + Odoo addon; ERPLibre XML-RPC not implemented | Cannot sync real inventory via XML-RPC |
+| **No live ERP integration** | Mock client + Odoo addon ([external repo](https://github.com/Sensorica/odoo-addons-nondominium)); ERPLibre XML-RPC not implemented | Cannot sync real inventory via XML-RPC |
 | **No bidirectional sync** | One-way ERP -> Nondominium only | Changes in Nondominium not reflected in ERP |
 | **ActionHash format unverified** | Serialization format from hc-http-gw needs verification with a running instance | Hashes may need format adjustments |
-| **Odoo addon not tested with live infrastructure** | Docker setup works but addon not tested with running Holochain conductor | End-to-end Odoo flow unverified |
-| **Odoo addon bypasses bridge** | The `nondominium_connector` addon talks directly to hc-http-gw, duplicating protocol logic from `gateway_client.py` | Will be refactored to call the Python bridge REST API instead |
+| **Odoo addon not tested with live infrastructure** | Addon (in [external repo](https://github.com/Sensorica/odoo-addons-nondominium)) not tested with running Holochain conductor | End-to-end Odoo flow unverified |
+| **Odoo addon bypasses bridge** | The `nondominium_connector` addon talks directly to hc-http-gw, duplicating protocol logic from `gateway_client.py` | Will be refactored to call the Python bridge REST API instead (tracked in external repo) |
 
 ---
 

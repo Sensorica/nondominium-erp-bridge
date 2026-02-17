@@ -148,7 +148,7 @@ nondominium_bridge/
         └── nondominium_widgets.js # Real-time update widgets
 ```
 
-> **Note**: A PoC Odoo addon exists at `docker/addons/nondominium_connector/` with models (`nondominium_config.py` for gateway settings, `product_sync.py` for product template extension) and views (`nondominium_config_views.xml`, `product_views.xml`). It currently calls hc-http-gw directly; the decision has been made to refactor it to call the Python bridge REST API instead, eliminating protocol duplication.
+> **Note**: A PoC Odoo addon (`nondominium_connector`) is maintained in a separate repository: **[odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)**. It currently calls hc-http-gw directly; the decision has been made to refactor it to call the Python bridge REST API instead, eliminating protocol duplication.
 
 ---
 

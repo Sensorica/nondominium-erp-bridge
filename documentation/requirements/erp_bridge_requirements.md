@@ -149,7 +149,7 @@ Nondominium's foundational identity layer is the `zome_person` zome, which separ
 
 For the current implementation status of each requirement, see [Implementation Architecture — Section 6](../implementation/architecture.md#6-implementation-status).
 
-Summary: FR-1 (partial — mock ERP + Odoo addon), FR-2 (done), FR-3 (done), FR-4 (partial — `discover_all()` is a stub), FR-5 (done — bridge + zome), FR-6 (done — bridge + zome).
+Summary: FR-1 (partial — mock ERP + Odoo addon in [external repo](https://github.com/Sensorica/odoo-addons-nondominium)), FR-2 (done), FR-3 (done), FR-4 (partial — `discover_all()` is a stub), FR-5 (done — bridge + zome), FR-6 (done — bridge + zome).
 
 ### 5.2 Production Functional Requirements (Future)
 
@@ -190,7 +190,7 @@ Summary: FR-1 (partial — mock ERP + Odoo addon), FR-2 (done), FR-3 (done), FR-
 
 ### 7.1 In Scope (PoC)
 
-- ERPLibre inventory reading via XML-RPC API (mock ERP + Odoo addon for PoC)
+- ERPLibre inventory reading via XML-RPC API (mock ERP for PoC; Odoo addon in [external repo](https://github.com/Sensorica/odoo-addons-nondominium))
 - Product → ResourceSpecification mapping
 - Stock → EconomicResource mapping
 - Cross-organizational resource discovery

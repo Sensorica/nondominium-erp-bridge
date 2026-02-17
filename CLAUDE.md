@@ -43,9 +43,8 @@ python scripts/create_test_data.py  # populate from mock ERP
 python scripts/sync_inventory.py    # run full sync pipeline
 python scripts/demo_full_flow.py    # full demo: sync→discover→commit→event→verify
 
-# Docker (Odoo/ERPLibre)
-cd docker && docker compose up -d   # start Odoo 17 + PostgreSQL
-python docker/init-data.py          # seed sample products
+# Odoo/ERPLibre addon (separate repo)
+# See https://github.com/Sensorica/odoo-addons-nondominium
 ```
 
 ## Architecture

@@ -135,49 +135,12 @@ python scripts/sync_inventory.py
 python scripts/demo_full_flow.py
 ```
 
-### 5.4 Docker / Odoo Development
+### 5.4 Odoo / ERPLibre Addon
 
-An Odoo 17 + PostgreSQL environment is provided via Docker Compose for developing and testing the `nondominium_connector` addon.
+The Odoo `nondominium_connector` addon has been moved to its own repository:
+**https://github.com/Sensorica/odoo-addons-nondominium**
 
-```bash
-# Start Odoo and PostgreSQL
-cd docker && docker compose up -d
-
-# Seed sample products
-python docker/init-data.py
-
-# Access Odoo at http://localhost:8069 (admin/admin)
-```
-
-See `docker/README.md` for full instructions on the Odoo setup, addon installation, and configuration.
-
-#### The `nondominium_connector` Addon
-
-Located at `docker/addons/nondominium_connector/`, this Odoo 17 module extends `product.template` with Nondominium sync capabilities:
-
-**Structure:**
-
-| Component | File | Purpose |
-|-----------|------|---------|
-| Config model | `models/nondominium_config.py` | `nondominium.config` — gateway URL, DNA hash, app ID; `call_zome()` method; "Test Connection" button |
-| Product sync | `models/product_sync.py` | `product.template` extension — sync fields (`nondominium_spec_hash`, `nondominium_resource_hash`, `nondominium_synced`, `nondominium_sync_date`), "Sync to Nondominium" button |
-| Config views | `views/nondominium_config_views.xml` | Settings form/tree views, menu under Inventory → Configuration → Nondominium |
-| Product views | `views/product_views.xml` | "Sync to Nondominium" header button, "Nondominium" tab in product form, "ND Synced" column in list |
-| Permissions | `security/ir.model.access.csv` | All users: read-only config; stock managers: full config access |
-
-**Current behavior (direct hc-http-gw calls):**
-
-The addon currently implements its own hc-http-gw protocol logic in `nondominium_config.py` — base64url encoding, URL construction, and HTTP GET calls. This duplicates functionality already provided by the Python bridge (`bridge/gateway_client.py`).
-
-**Planned change — bridge REST API integration:**
-
-The architectural decision has been made to refactor the addon to call the Python bridge's REST API instead of hc-http-gw directly. This will:
-- Eliminate protocol duplication between addon and bridge
-- Let the bridge own all Holochain communication logic
-- Simplify the addon (just HTTP calls to the bridge)
-- Enable Pydantic validation and bridge-level error handling for addon operations
-
-This refactoring is planned for the next iteration and will be discussed with the ERPLibre developer.
+See that repo for Docker Compose setup (Odoo 17 + PostgreSQL), addon installation, and development instructions.
 
 ### 5.5 Running the End-to-End Demo
 
@@ -253,14 +216,10 @@ The demo executes 5 steps:
 
 ### Developing the Odoo Addon
 
-The PoC Odoo addon is at `docker/addons/nondominium_connector/`. To develop:
+The Odoo `nondominium_connector` addon is maintained in a separate repository:
+**https://github.com/Sensorica/odoo-addons-nondominium**
 
-1. Start Docker: `cd docker && docker compose up -d`
-2. Edit addon files (models, views, controllers)
-3. Restart Odoo: `docker compose restart odoo`
-4. Upgrade the module in Odoo: Apps → Nondominium Connector → Upgrade
-
-> **Note**: The addon currently calls hc-http-gw directly. It will be refactored to call the Python bridge REST API instead — see [Section 5.4](#54-docker--odoo-development) for details on the planned architecture change.
+See that repo for development setup, Docker Compose instructions, and addon documentation.
 
 ### Adding New Model Fields
 

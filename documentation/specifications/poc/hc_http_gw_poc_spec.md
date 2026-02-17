@@ -253,7 +253,7 @@ print('Health check:', gw.health_check())
 | Unidirectional sync | PoC scope | Implement bidirectional in production |
 | Single ERP | ERPLibre focus | Add Dolibarr, ERPNext modules |
 | Periodic polling | No real-time | Add signal/webhook support |
-| Mock ERP + Odoo addon (PoC) | Live ERPLibre XML-RPC not implemented | Implement full XML-RPC client |
+| Mock ERP + Odoo addon ([external repo](https://github.com/Sensorica/odoo-addons-nondominium)) | Live ERPLibre XML-RPC not implemented | Implement full XML-RPC client |
 | PPR output types use `Any` | Complex cryptographic types | Tighten Pydantic models for production |
 | Timestamp format unverified | May be `{secs, nanos}` struct | Verify with running Holochain instance |
 
@@ -311,7 +311,7 @@ def poll_for_changes(bridge, interval_seconds=60):
 | `zome_person` bridge module | High | Medium | Not started — Person profile creation is a prerequisite for custody transfers and agent promotion workflows |
 | Bidirectional sync | High | Medium | Not started |
 | Real-time signals | High | Medium | Not started |
-| ERPLibre Odoo module | Medium | High | PoC addon done (`docker/addons/nondominium_connector/`) — currently calls hc-http-gw directly; decision made to refactor to call the Python bridge REST API |
+| ERPLibre Odoo module | Medium | High | PoC addon moved to [external repo](https://github.com/Sensorica/odoo-addons-nondominium) — currently calls hc-http-gw directly; decision made to refactor to call the Python bridge REST API |
 | Multi-ERP support | Medium | High | Not started |
 | PPR dashboard | Low | Medium | Not started |
 
