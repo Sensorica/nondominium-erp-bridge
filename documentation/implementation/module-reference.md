@@ -462,7 +462,45 @@ Constructor: `__init__(self, client: HolochainGatewayClient)`
 
 ---
 
-## 9. Scripts
+## 9. Planned: `bridge/person.py` — Person Identity Module (Not Yet Implemented)
+
+**Purpose**: Will provide a high-level Python API for managing Person profiles, roles, and capability-based sharing via `zome_person`.
+
+> **Status**: Not yet implemented. This section documents the planned module for future development.
+
+### Planned Capabilities
+
+| Capability | `zome_person` Functions | Description |
+|------------|------------------------|-------------|
+| Person profile CRUD | `create_person`, `get_latest_person`, `get_my_person_profile` | Create and manage public Person profiles |
+| Role management | `assign_person_role`, `get_person_roles`, `get_person_capability_level` | Assign roles and query capability levels |
+| Agent promotion | `promote_agent_with_validation` | Promote agents with cross-zome governance validation |
+| Private data management | `store_private_person_data`, `get_my_private_person_data` | Manage private identity data (legal name, email, etc.) |
+| Capability-based sharing | `grant_private_data_access`, `revoke_private_data_access` | Time-limited private data access grants |
+| Multi-device support | `register_device_for_person`, `get_devices_for_person` | Map multiple agents/devices to one Person |
+
+### Integration Points with Existing Modules
+
+- **`sync.py`**: After syncing inventory, could auto-create a Person profile for the organization agent if one doesn't exist
+- **`use_process.py`**: Before proposing commitments, could verify the agent has the required role level (e.g., `AccountableAgent` for custody transfers)
+- **`discovery.py`**: Could enrich discovered resources with Person profile metadata (e.g., organization name) of the custodian
+- **`gateway_client.py`**: Will need new methods wrapping `zome_person` coordinator functions (similar pattern to existing governance methods with `zome=ZOME_PERSON`)
+
+### Key Types to Model
+
+| Rust Type | Key Fields | Notes |
+|-----------|------------|-------|
+| `Person` | `name`, `avatar_url`, `bio` | Public profile |
+| `PrivatePersonData` | `legal_name`, `email`, `phone`, `address`, `emergency_contact`, `time_zone`, `location` | Private entry, never fully shared |
+| `PersonRole` | `role_name`, `description`, `assigned_to`, `assigned_by`, `assigned_at` | Role assignment |
+| `RoleType` | 6 variants: `SimpleAgent`, `AccountableAgent`, `PrimaryAccountableAgent`, `Transport`, `Repair`, `Storage` | PascalCase enum |
+| `Device` | `device_id`, `device_name`, `device_type`, `owner_agent`, `status` | Multi-device support |
+| `AgentPersonRelationship` | `agent`, `person`, `established_at`, `relationship_type` | Primary/Secondary/Device |
+| `FilteredPrivateData` | Same fields as `PrivatePersonData` but all optional | Capability-filtered view |
+
+---
+
+## 10. Scripts
 
 ### `scripts/setup_conductor.sh`
 
@@ -492,7 +530,7 @@ End-to-end demonstration of the complete bridge flow. Requires running conductor
 
 ---
 
-## 10. Test Coverage Summary
+## 11. Test Coverage Summary
 
 | Test File | Tests | Covers |
 |-----------|-------|--------|

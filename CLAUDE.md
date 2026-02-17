@@ -54,11 +54,13 @@ python docker/init-data.py          # seed sample products
 ERP (Mock) → Mapper → Pydantic Models → GatewayClient → hc-http-gw → Holochain
 ```
 
+Nondominium exposes three zomes: `zome_person` (foundational identity), `zome_resource`, and `zome_gouvernance`. The bridge currently covers the latter two; `zome_person` support is planned.
+
 Eight modules in `bridge/`, each with a single responsibility:
 
 - **config.py** — `GatewayConfig` frozen dataclass, loads from env vars (`HC_GW_URL`, `HC_GW_TIMEOUT`, `HC_APP_ID`, `HC_DNA_HASH`)
-- **models.py** — Pydantic v2 models mapping 1:1 to Rust zome types. Covers both `zome_resource` (specs, resources, governance rules) and `zome_gouvernance` (commitments, events, claims, validation, PPR)
-- **gateway_client.py** — `HolochainGatewayClient` wrapping `zome_resource` and `zome_gouvernance` coordinator functions as typed Python methods. Multi-zome support via `zome` parameter on `_call()`
+- **models.py** — Pydantic v2 models mapping 1:1 to Rust zome types. Currently covers `zome_resource` (specs, resources, governance rules) and `zome_gouvernance` (commitments, events, claims, validation, PPR). `zome_person` types are planned.
+- **gateway_client.py** — `HolochainGatewayClient` wrapping `zome_resource` and `zome_gouvernance` coordinator functions as typed Python methods. Multi-zome support via `zome` parameter on `_call()`. `zome_person` methods planned.
 - **mapper.py** — Pure functions converting `MockProduct` → `ResourceSpecificationInput` / `EconomicResourceInput`
 - **erp_mock.py** — `MockERPClient` simulating ERPLibre's `product.product` model with 4 sample Sensorica fab-lab products
 - **discovery.py** — `ResourceDiscovery` providing cross-org resource discovery via the Nondominium DHT (category-based search, spec-based lookup)
@@ -72,7 +74,7 @@ All Holochain calls go through HTTP GET:
 GET {host}/{dna_hash}/{app_id}/{zome}/{fn_name}?payload={base64url_json}
 ```
 
-Two zomes are exposed: `zome_resource` (resource specs, economic resources, governance rules) and `zome_gouvernance` (commitments, events, claims, validation, PPR).
+Three zomes are exposed: `zome_person` (person profiles, roles, private data, capability-based sharing — foundational identity layer), `zome_resource` (resource specs, economic resources, governance rules), and `zome_gouvernance` (commitments, events, claims, validation, PPR).
 
 - Payloads: base64url (RFC 4648), **no padding** (`=` stripped), compact JSON (`separators=(",", ":")`)
 - Functions taking `()` (like `get_all_resource_specifications`) omit `?payload=` entirely
@@ -93,6 +95,14 @@ Pydantic field names **must match Rust zome field names exactly** (hc-http-gw us
 
 When verifying or updating models, check these files in the `nondominium` sibling repo:
 
+**zome_person (foundational identity layer — person profiles, roles, capabilities):**
+- **Integrity types**: `dnas/nondominium/zomes/integrity/zome_person/src/lib.rs`
+- **Person coordinator**: `dnas/nondominium/zomes/coordinator/zome_person/src/person.rs`
+- **Role coordinator**: `dnas/nondominium/zomes/coordinator/zome_person/src/role.rs`
+- **Private data coordinator**: `dnas/nondominium/zomes/coordinator/zome_person/src/private_data.rs`
+- **Capability-based sharing coordinator**: `dnas/nondominium/zomes/coordinator/zome_person/src/capability_based_sharing.rs`
+- **Device management coordinator**: `dnas/nondominium/zomes/coordinator/zome_person/src/device_management.rs`
+
 **zome_resource (resources & specs):**
 - **Integrity types**: `dnas/nondominium/zomes/integrity/zome_resource/src/lib.rs`
 - **ResourceSpecification coordinator**: `dnas/nondominium/zomes/coordinator/zome_resource/src/resource_specification.rs`
@@ -106,6 +116,12 @@ When verifying or updating models, check these files in the `nondominium` siblin
 - **EconomicEvent coordinator**: `dnas/nondominium/zomes/coordinator/zome_gouvernance/src/economic_event.rs`
 - **PPR coordinator**: `dnas/nondominium/zomes/coordinator/zome_gouvernance/src/ppr.rs`
 - **Validation coordinator**: `dnas/nondominium/zomes/coordinator/zome_gouvernance/src/validation.rs`
+
+**Cross-zome dependencies:**
+- `zome_gouvernance` calls `zome_person` for: `validate_agent_private_data`, `validate_agent_for_promotion`
+- `zome_person` calls `zome_gouvernance` for: `validate_agent_identity`, `validate_specialized_role`, `validate_agent_for_promotion`
+
+> **Note**: `zome_person` is the foundational identity layer of Nondominium but is not yet bridged in the Python client. The bridge currently covers `zome_resource` and `zome_gouvernance` only. Bridging `zome_person` is a prerequisite for e2e testing and is planned as a priority for the next iteration.
 
 ## Testing Patterns
 

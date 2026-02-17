@@ -1,7 +1,7 @@
 # Documentation Index
 
 > **Nondominium-ERP Bridge Project Documentation**
-> **Last Updated**: 2026-02-12
+> **Last Updated**: 2026-02-17
 
 ---
 
@@ -66,8 +66,9 @@ PoC-specific specification and implementation guide covering:
 **[architecture.md](implementation/architecture.md)**
 
 What is actually built — the living record of the current implementation:
-- System overview and pipeline diagrams (3 pipelines: sync, discovery, governance)
-- Module dependency graph (8 modules)
+- System overview and pipeline diagrams (4 pipelines: person/identity (planned), sync, discovery, governance)
+- Module dependency graph (8 modules, + planned person module)
+- Cross-zome dependency diagram (zome_person ⇄ zome_gouvernance)
 - Sync, discovery, and governance data flows
 - Key design decisions
 - Implementation status (FR-1 to FR-6 mapping)
@@ -139,7 +140,9 @@ Practical guide for developers:
 | - | - | Created dedicated PoC implementation guide | - |
 | 1.1 | 2026-02-05 | Corrected field names, zome functions, port, environment setup, and code examples to match actual Nondominium codebase and PoC scaffolding | - |
 | 1.2 | 2026-02-12 | Added implementation documentation layer (architecture, module reference, development guide). Trimmed PoC spec to remove code duplicating bridge/ modules. Updated all cross-references and counts. | - |
-| 1.3 | 2026-02-12 | Added governance bridge (`zome_gouvernance` models + gateway methods + `use_process` module). Added Docker/Odoo setup and `nondominium_connector` addon. Added end-to-end demo script. Updated all implementation docs to reflect 8 modules and 101 tests. | - |
+| 1.3 | 2026-02-12 | Added governance bridge (`zome_gouvernance` models + gateway methods + `use_process` module). Added Docker/Odoo setup and `nondominium_connector` addon. Added end-to-end demo script. Updated all implementation docs to reflect 8 modules and 101 tests. |
+| 1.4 | 2026-02-17 | Added `zome_person` (foundational identity zome) coverage across all 8 documentation files. Documented Person/Agent identity model, role types, capability levels, cross-zome dependencies, and planned bridge module. Added FR-7 for Person/Agent identity management. | - |
+| 1.5 | 2026-02-17 | Documented `nondominium_connector` addon current state (models, views, permissions, sync flow). Recorded architectural decision: addon will be refactored to call Python bridge REST API instead of hc-http-gw directly. Fixed incorrect file names in erp_bridge_specifications.md. | - |
 
 ---
 
@@ -163,14 +166,17 @@ Historical documents preserved for reference:
 | **ERP Module** | ERP-specific integration layer (data mapping, UI) |
 | **hc-http-gw** | Holochain HTTP Gateway for PoC |
 | **Organization Agent** | Holochain agent representing an organization (not individual users) |
+| **Person** | Public identity profile in `zome_person` (foundational identity layer) — distinct from cryptographic agent |
 | **PPR** | Private Participation Receipt - reputation tracking |
+| **RoleType** | Person role in `zome_person`: SimpleAgent, AccountableAgent, PrimaryAccountableAgent, Transport, Repair, Storage |
 
 ### Architecture Summary
 
 ```
 ERP (Mock/Odoo) -> Python Bridge -> hc-http-gw -> Holochain Conductor -> Nondominium DHT
-                                                                          ├── zome_resource
-                                                                          └── zome_gouvernance
+                                                                          ├── zome_person       (foundational identity layer — not yet bridged)
+                                                                          ├── zome_resource      (bridged)
+                                                                          └── zome_gouvernance   (bridged)
 ```
 
 ### PoC vs Production

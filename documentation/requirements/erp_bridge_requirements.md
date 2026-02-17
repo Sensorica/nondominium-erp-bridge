@@ -112,6 +112,24 @@ Nondominium Network
 Other Organizations
 ```
 
+### 4.4 Person/Agent Identity Model (`zome_person`)
+
+Nondominium's foundational identity layer is the `zome_person` zome, which separates **cryptographic agent identity** (Holochain `AgentPubKey`) from **human/organizational identity** (`Person` profile). As the base layer upon which resource management and governance are built, it is important for the ERP bridge because:
+
+1. **Person profiles** hold public metadata (name, bio, avatar) and private data (legal name, email, phone) — separate from the Holochain agent key
+2. **Roles** (`RoleType`) define capability levels that gate governance actions: `SimpleAgent` → `AccountableAgent` → `PrimaryAccountableAgent`, plus specialized roles (`Transport`, `Repair`, `Storage`)
+3. **Capability-based sharing** allows selective disclosure of private data to other agents, with time-limited grants (max 30 days)
+4. **Multi-device support** allows multiple Holochain agents (devices) to map to a single Person identity
+5. **Cross-zome validation** — `zome_gouvernance` calls `zome_person` to validate agent identity before custody transfers and promotions
+
+**Capability Levels** (derived from roles):
+- `member` — default for all agents (SimpleAgent)
+- `stewardship` — Transport, Repair, Storage specialized roles
+- `coordination` — AccountableAgent (validated identity + first resource)
+- `governance` — PrimaryAccountableAgent (highest authority)
+
+> **Note**: The Python bridge does not yet include a `zome_person` module. As the foundational identity layer of Nondominium, bridging `zome_person` is a priority for the next iteration. Until then, Person profile creation and role assignment must be done directly via Holochain or hc-http-gw. This is a prerequisite for end-to-end testing of custody transfers and agent promotion workflows.
+
 ---
 
 ## 5. Functional Requirements
@@ -137,11 +155,12 @@ Summary: FR-1 (partial — mock ERP + Odoo addon), FR-2 (done), FR-3 (done), FR-
 
 | ID | Requirement | Priority | Description |
 |----|-------------|----------|-------------|
-| **FR-7** | Bidirectional Sync | Should Have | Changes in Nondominium reflected back to ERP |
-| **FR-8** | Real-time Signals | Should Have | Push notifications for resource requests |
-| **FR-9** | Governance Rules | Could Have | Organizations set access rules via ERP UI |
-| **FR-10** | PPR Dashboard | Could Have | Display reputation scores in ERP |
-| **FR-11** | Multi-ERP Support | Should Have | Support for Dolibarr, ERPNext, etc. |
+| **FR-7** | Person/Agent Identity Management | Should Have | Create and manage Person profiles, assign roles, and validate agent identity via `zome_person`. Prerequisite for custody transfers and agent promotion. |
+| **FR-8** | Bidirectional Sync | Should Have | Changes in Nondominium reflected back to ERP |
+| **FR-9** | Real-time Signals | Should Have | Push notifications for resource requests |
+| **FR-10** | Governance Rules | Could Have | Organizations set access rules via ERP UI |
+| **FR-11** | PPR Dashboard | Could Have | Display reputation scores in ERP |
+| **FR-12** | Multi-ERP Support | Should Have | Support for Dolibarr, ERPNext, etc. |
 
 ---
 
@@ -280,12 +299,16 @@ Demonstrate that inventory from two organizations running ERPLibre can be synchr
 
 | Term | Definition |
 |------|------------|
+| **AgentPersonRelationship** | Many-to-many mapping between Holochain agents and Person profiles (supports multi-device) |
 | **DHT** | Distributed Hash Table - the peer-to-peer data storage layer in Holochain |
 | **EconomicEvent** | A ValueFlows concept representing an observed economic action |
 | **EconomicResource** | A ValueFlows concept representing a specific instance of a resource |
 | **hc-http-gw** | Holochain HTTP Gateway - exposes zome functions as REST endpoints |
+| **Person** | A public identity profile in `zome_person` (name, bio, avatar) — distinct from the cryptographic Holochain agent |
+| **PersonRole** | A role assignment linking a Person to a RoleType with capabilities |
 | **PPR** | Private Participation Receipt - cryptographic proof of economic participation |
 | **ResourceSpecification** | A ValueFlows concept defining the characteristics of a type of resource |
+| **RoleType** | One of 6 role variants: SimpleAgent, AccountableAgent, PrimaryAccountableAgent, Transport, Repair, Storage |
 | **Zome** | A Holochain module containing application logic |
 
 ---

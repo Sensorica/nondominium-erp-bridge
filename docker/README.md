@@ -49,6 +49,59 @@ After adding a new module:
 2. Go to Apps → Update Apps List
 3. Search for your module and install it
 
+### `nondominium_connector` Addon
+
+An Odoo 17 module that extends `product.template` with Nondominium sync capabilities. It provides a PoC UI for publishing Odoo products to the Nondominium DHT.
+
+**Module structure:**
+
+```
+nondominium_connector/
+├── __manifest__.py                  # Odoo module manifest (depends: product, stock)
+├── models/
+│   ├── nondominium_config.py        # nondominium.config model (gateway settings)
+│   └── product_sync.py              # product.template extension (sync fields + button)
+├── views/
+│   ├── nondominium_config_views.xml # Settings form, tree, and menu item
+│   └── product_views.xml            # Product form button, "Nondominium" tab, list column
+└── security/
+    └── ir.model.access.csv          # ACL: users read-only, stock managers full access
+```
+
+**Two models:**
+
+- **`nondominium.config`** — Stores gateway connection settings (URL, DNA hash, app ID). Provides `call_zome()` for making hc-http-gw requests and a "Test Connection" button.
+- **`product.template` (inherited)** — Adds sync fields (`nondominium_spec_hash`, `nondominium_resource_hash`, `nondominium_synced`, `nondominium_sync_date`) and a "Sync to Nondominium" button.
+
+**Sync flow:**
+
+1. Creates a `ResourceSpecification` (from product name, description, category)
+2. Creates an `EconomicResource` (linked to the spec, with quantity and unit)
+3. Records the returned hashes and sync timestamp on the Odoo product record
+4. Handles partial failures (spec created but resource failed) with user notifications
+
+**UI elements:**
+
+- **Settings page**: Inventory → Configuration → Nondominium — configure gateway URL, DNA hash, app ID; "Test Connection" button
+- **Product form**: "Sync to Nondominium" button in header; "Nondominium" tab showing sync status, last sync date, spec hash, resource hash
+- **Product list**: Optional "ND Synced" column
+
+**Permissions:**
+
+| Group | Config Read | Config Write | Config Create | Config Delete |
+|-------|------------|-------------|--------------|--------------|
+| All users (`base.group_user`) | Yes | No | No | No |
+| Stock managers (`stock.group_stock_manager`) | Yes | Yes | Yes | Yes |
+
+**Current limitation — direct hc-http-gw calls:**
+
+The addon currently talks directly to hc-http-gw, duplicating the base64url encoding and URL construction logic already provided by the Python bridge (`bridge/gateway_client.py`). The architectural decision has been made to refactor the addon to call the Python bridge's REST API instead, which will:
+
+- Eliminate protocol duplication between the addon and the bridge
+- Let the bridge own all Holochain communication logic
+- Make the addon simpler (just HTTP POST to the bridge)
+- Enable the addon to benefit from bridge features (Pydantic validation, error handling, sync state)
+
 ## Management
 
 ```bash

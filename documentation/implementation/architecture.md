@@ -1,7 +1,7 @@
 # Architecture
 
 > **Document Type**: Implementation Reference
-> **Last Updated**: 2026-02-12
+> **Last Updated**: 2026-02-17
 > **Related Documents**:
 > - [Requirements](../requirements/erp_bridge_requirements.md)
 > - [Technical Specifications](../specifications/erp_bridge_specifications.md)
@@ -11,7 +11,7 @@
 
 ## 1. System Overview
 
-The Nondominium-ERP Bridge is a Python application that syncs ERP inventory into Holochain's Nondominium app via the `hc-http-gw` HTTP gateway. It uses a mock ERP client (and optionally an Odoo addon) and supports two Nondominium zomes: `zome_resource` for inventory and `zome_gouvernance` for commitments, events, and PPRs.
+The Nondominium-ERP Bridge is a Python application that syncs ERP inventory into Holochain's Nondominium app via the `hc-http-gw` HTTP gateway. Nondominium has three zomes, with `zome_person` as the foundational identity layer. The bridge currently covers `zome_resource` (inventory) and `zome_gouvernance` (commitments, events, PPRs), while `zome_person` (person profiles, roles, capabilities) is not yet bridged but is required for complete e2e workflows.
 
 ```
 ┌──────────────────┐     ┌──────────────────────────────────────────┐      ┌───────────────┐
@@ -23,11 +23,17 @@ The Nondominium-ERP Bridge is a Python application that syncs ERP inventory into
 │  Odoo Addon      │     │  UseProcess → GatewayClient              │      │               │
 │  (optional)      │     │    ↓ Commitment + Event + PPR            │      │ ┌───────────┐ │
 │                  │     │                                          │      │ │zome_      │ │
-└──────────────────┘     │  Discovery → GatewayClient               │      │ │resource   │ │
-                         │    ↓ Read-only DHT queries               │ ┌──> │ ├───────────┤ │
-                         │                                          │ │    │ │zome_      │ │
-                         │  hc-http-gw ─────────────────────────────│─┘    │ │gouvernance│ │
-                         └──────────────────────────────────────────┘      │ └───────────┘ │
+└──────────────────┘     │  Discovery → GatewayClient               │      │ │person     │ │
+                         │    ↓ Read-only DHT queries               │ ┌──> │ │(foundation│ │
+                         │                                          │ │    │ │ not yet   │ │
+                         │  hc-http-gw ─────────────────────────────│─┘    │ │ bridged)  │ │
+                         └──────────────────────────────────────────┘      │ ├───────────┤ │
+                                                                           │ │zome_      │ │
+                                                                           │ │resource   │ │
+                                                                           │ ├───────────┤ │
+                                                                           │ │zome_      │ │
+                                                                           │ │gouvernance│ │
+                                                                           │ └───────────┘ │
                                                                            └───────────────┘
                                                                                   │
                                                                             DHT Network
@@ -35,11 +41,29 @@ The Nondominium-ERP Bridge is a Python application that syncs ERP inventory into
                                                                             Other Organizations
 ```
 
-### Three Pipelines
+### Four Pipelines (one planned)
 
-1. **Sync Pipeline** (ERP -> Holochain): `erp_mock` -> `mapper` -> `models` -> `gateway_client` -> hc-http-gw -> `zome_resource`
-2. **Discovery Pipeline** (Holochain -> Python): `gateway_client` -> hc-http-gw -> Holochain DHT -> `discovery` -> Python objects
-3. **Governance Pipeline** (Use process): `use_process` -> `gateway_client` -> hc-http-gw -> `zome_gouvernance`
+1. **Person/Identity Pipeline** (Planned — foundational): `person` -> `gateway_client` -> hc-http-gw -> `zome_person` — will handle Person profile creation, role assignment, capability-based sharing, and cross-zome identity validation
+2. **Sync Pipeline** (ERP -> Holochain): `erp_mock` -> `mapper` -> `models` -> `gateway_client` -> hc-http-gw -> `zome_resource`
+3. **Discovery Pipeline** (Holochain -> Python): `gateway_client` -> hc-http-gw -> Holochain DHT -> `discovery` -> Python objects
+4. **Governance Pipeline** (Use process): `use_process` -> `gateway_client` -> hc-http-gw -> `zome_gouvernance`
+
+### Cross-Zome Dependencies
+
+```
+zome_person ⇄ zome_gouvernance
+  │
+  ├── zome_person → zome_gouvernance:
+  │     validate_agent_identity (for AccountableAgent promotion)
+  │     validate_specialized_role (for Transport/Repair/Storage roles)
+  │     validate_agent_for_promotion (for role promotions)
+  │
+  └── zome_gouvernance → zome_person:
+        validate_agent_private_data (for custody transfer validation)
+        validate_agent_for_promotion (for agent capability checks)
+```
+
+These cross-zome calls mean some governance operations require a Person profile in `zome_person`.
 
 ---
 
@@ -170,12 +194,14 @@ Mapping of requirements (from [erp_bridge_requirements.md](../requirements/erp_b
 
 ### Docker / Odoo Integration
 
-| Feature | Status |
-|---------|--------|
-| Docker Compose (Odoo 17 + PostgreSQL) | Done (`docker/docker-compose.yml`) |
-| Odoo `nondominium_connector` addon | Done (`docker/addons/nondominium_connector/`) |
-| Product sync from Odoo UI | Done (settings page, product form button) |
-| Tested with live Holochain infrastructure | Not done |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Docker Compose (Odoo 17 + PostgreSQL) | Done | `docker/docker-compose.yml` |
+| Odoo `nondominium_connector` addon | Done | `docker/addons/nondominium_connector/` — two models (`nondominium.config`, `product.template` extension), settings page, product form button |
+| Product sync from Odoo UI | Done | Creates ResourceSpecification + EconomicResource, records hashes on product |
+| Addon calls hc-http-gw directly | Current state | Duplicates bridge protocol logic (base64url encoding, URL construction) |
+| Refactor addon to call bridge REST API | Planned | Decision made: addon will call the Python bridge instead of hc-http-gw directly |
+| Tested with live Holochain infrastructure | Not done | Addon not tested with running conductor + hc-http-gw |
 
 ---
 
@@ -183,6 +209,7 @@ Mapping of requirements (from [erp_bridge_requirements.md](../requirements/erp_b
 
 | Gap | Details | Impact |
 |-----|---------|--------|
+| **`zome_person` not bridged** | Foundational identity zome for person profiles, roles, and capabilities has no Python bridge module | Cannot create Person profiles, assign roles, or validate agent identity from Python. Custody transfers and promotions that require cross-zome validation with `zome_person` will fail without manual Person setup via hc-http-gw. |
 | **`discover_all()` is a stub** | `get_all_resource_specifications` doesn't return hashes, so specs can't be correlated to resources | Cannot enumerate all resources with their specs |
 | **Governance rules always empty** | `mapper.product_to_resource_spec()` sets `governance_rules=[]` | No access control on published resources |
 | **No location mapping** | `product_to_economic_resource()` sets `current_location=None` | Resource locations not tracked |
@@ -193,6 +220,7 @@ Mapping of requirements (from [erp_bridge_requirements.md](../requirements/erp_b
 | **No bidirectional sync** | One-way ERP -> Nondominium only | Changes in Nondominium not reflected in ERP |
 | **ActionHash format unverified** | Serialization format from hc-http-gw needs verification with a running instance | Hashes may need format adjustments |
 | **Odoo addon not tested with live infrastructure** | Docker setup works but addon not tested with running Holochain conductor | End-to-end Odoo flow unverified |
+| **Odoo addon bypasses bridge** | The `nondominium_connector` addon talks directly to hc-http-gw, duplicating protocol logic from `gateway_client.py` | Will be refactored to call the Python bridge REST API instead |
 
 ---
 
@@ -204,7 +232,7 @@ All communication with Holochain goes through HTTP GET requests:
 GET {host}/{dna_hash}/{app_id}/{zome}/{fn_name}?payload={base64url_json}
 ```
 
-Where `{zome}` is `zome_resource` or `zome_gouvernance`.
+Where `{zome}` is `zome_person`, `zome_resource`, or `zome_gouvernance` (the bridge currently uses the latter two only).
 
 - **Payloads**: Base64url encoded (RFC 4648), no padding (`=` stripped), compact JSON (`separators=(",", ":")`)
 - **No-arg functions**: Functions taking `()` (like `get_all_resource_specifications`) omit `?payload=` entirely

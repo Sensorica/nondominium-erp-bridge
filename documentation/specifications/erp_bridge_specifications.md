@@ -2,7 +2,7 @@
 
 > **Document Type**: Technical Specifications
 > **Version**: 1.0
-> **Last Updated**: 2026-02-12
+> **Last Updated**: 2026-02-17
 > **Related Documents**:
 > - [Requirements](../requirements/erp_bridge_requirements.md)
 > - [PoC Specification](poc/hc_http_gw_poc_spec.md)
@@ -148,7 +148,7 @@ nondominium_bridge/
         └── nondominium_widgets.js # Real-time update widgets
 ```
 
-> **Note**: A PoC Odoo addon exists at `docker/addons/nondominium_connector/` with an actual `__manifest__.py`, models (`res_config_settings.py`, `product_template.py`), and views (`res_config_settings_views.xml`, `product_template_views.xml`). It demonstrates product-to-Nondominium sync from the Odoo UI.
+> **Note**: A PoC Odoo addon exists at `docker/addons/nondominium_connector/` with models (`nondominium_config.py` for gateway settings, `product_sync.py` for product template extension) and views (`nondominium_config_views.xml`, `product_views.xml`). It currently calls hc-http-gw directly; the decision has been made to refactor it to call the Python bridge REST API instead, eliminating protocol duplication.
 
 ---
 
@@ -273,7 +273,65 @@ app.listen(3000);
 
 > **Note**: The Nondominium `ResourceSpecification` uses `category` (not `default_unit`) and `EconomicResourceInput` uses `spec_hash` (not `conforms_to`). See `bridge/models.py` for the exact Pydantic models.
 
-### 4.3 Nondominium Zome Functions
+### 4.3 `zome_person` Functions (Foundational Identity Layer — Not Yet Bridged)
+
+Nondominium's foundational identity zome, `zome_person`, manages person/agent identity, roles, private data, capability-based sharing, and multi-device support. As the identity layer, it underpins both `zome_resource` and `zome_gouvernance` — governance operations like custody transfers and agent promotions depend on Person profiles and role assignments managed by `zome_person`. It is not yet bridged in the Python client but is documented here for completeness and future implementation planning.
+
+> **Status**: Not yet implemented in the bridge. The functions below are available via hc-http-gw directly.
+
+**Person Management Functions:**
+
+| Function | Input | Output | Description |
+|----------|-------|--------|-------------|
+| `create_person` | `PersonInput` | `Record` | Create a public Person profile (name, bio, avatar) |
+| `get_latest_person` | `ActionHash` | `Person` | Get a Person by hash (follows update chain) |
+| `get_my_person_profile` | None | `PersonProfileOutput` | Get current agent's profile (includes private data) |
+| `get_person_profile` | `AgentPubKey` | `PersonProfileOutput` | Get another agent's public profile |
+| `get_agent_person` | `AgentPubKey` | `Option<ActionHash>` | Look up Person hash for an agent |
+| `get_all_persons` | None | `GetAllPersonsOutput` | List all Person profiles |
+
+**Role Management Functions:**
+
+| Function | Input | Output | Description |
+|----------|-------|--------|-------------|
+| `assign_person_role` | `PersonRoleInput` | `Record` | Assign a role to a person (validates specialized roles via `zome_gouvernance`) |
+| `get_person_roles` | `AgentPubKey` | `GetPersonRolesOutput` | Get all roles for an agent |
+| `get_person_capability_level` | `AgentPubKey` | `String` | Returns: `governance`, `coordination`, `stewardship`, or `member` |
+| `promote_agent_with_validation` | `PromoteAgentInput` | `Record` | Promote agent with cross-zome validation via `zome_gouvernance` |
+
+**Private Data Functions:**
+
+| Function | Input | Output | Description |
+|----------|-------|--------|-------------|
+| `store_private_person_data` | `PrivatePersonDataInput` | `Record` | Store private data (legal name, email, phone, etc.) |
+| `get_my_private_person_data` | None | `Option<PrivatePersonData>` | Get own private data |
+| `grant_private_data_access` | `GrantPrivateDataAccessInput` | `GrantPrivateDataAccessOutput` | Grant time-limited capability for private data access |
+| `revoke_private_data_access` | `ActionHash` | `()` | Revoke a previously granted capability |
+
+**Capability-Based Sharing Functions:**
+
+| Function | Input | Output | Description |
+|----------|-------|--------|-------------|
+| `validate_agent_private_data` | `ValidationDataRequest` | `ValidationResult` | Validate agent's private data (called by `zome_gouvernance`) |
+| `grant_role_based_private_data_access` | `GrantRoleBasedAccessInput` | `GrantPrivateDataAccessOutput` | Auto-field selection based on RoleType |
+| `get_private_data_with_capability` | `GetPrivateDataWithCapabilityInput` | `FilteredPrivateData` | Access private data using capability grant |
+
+**Device Management Functions:**
+
+| Function | Input | Output | Description |
+|----------|-------|--------|-------------|
+| `register_device_for_person` | `RegisterDeviceInput` | `Record` | Register a device for multi-device support |
+| `get_devices_for_person` | `ActionHash` | `Vec<DeviceInfo>` | List all devices for a Person |
+| `deactivate_device` | `String` (device_id) | `bool` | Revoke a device |
+
+**Cross-Zome Dependencies:**
+
+- **`zome_person` → `zome_gouvernance`**: `validate_agent_identity` (for AccountableAgent promotion), `validate_specialized_role` (for Transport/Repair/Storage roles), `validate_agent_for_promotion` (for role promotions with validation)
+- **`zome_gouvernance` → `zome_person`**: `validate_agent_private_data` (for custody transfer validation), `validate_agent_for_promotion` (for agent capability checks)
+
+These cross-zome calls mean that some governance operations (custody transfers, agent promotions) require the agent to have a Person profile with valid private data in `zome_person`.
+
+### 4.4 `zome_resource` and `zome_gouvernance` Functions
 
 Complete function list from the `zome_resource` coordinator (Holochain 0.6.x, hdi 0.7.0 / hdk 0.6.0):
 

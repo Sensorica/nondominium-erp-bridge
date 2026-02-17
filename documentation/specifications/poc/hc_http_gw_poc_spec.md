@@ -1,8 +1,8 @@
 # hc-http-gw PoC Implementation Specification
 
 > **Document Type**: PoC Implementation Guide
-> **Version**: 1.1
-> **Last Updated**: 2026-02-12
+> **Version**: 1.2
+> **Last Updated**: 2026-02-17
 > **Related Documents**:
 > - [Requirements](../../requirements/erp_bridge_requirements.md)
 > - [Technical Specifications](../erp_bridge_specifications.md)
@@ -308,11 +308,19 @@ def poll_for_changes(bridge, interval_seconds=60):
 
 | Feature | Priority | Effort | Status |
 |---------|----------|--------|--------|
+| `zome_person` bridge module | High | Medium | Not started — Person profile creation is a prerequisite for custody transfers and agent promotion workflows |
 | Bidirectional sync | High | Medium | Not started |
 | Real-time signals | High | Medium | Not started |
-| ERPLibre Odoo module | Medium | High | Partially done (PoC addon at `docker/addons/nondominium_connector/`) |
+| ERPLibre Odoo module | Medium | High | PoC addon done (`docker/addons/nondominium_connector/`) — currently calls hc-http-gw directly; decision made to refactor to call the Python bridge REST API |
 | Multi-ERP support | Medium | High | Not started |
 | PPR dashboard | Low | Medium | Not started |
+
+> **Note on `zome_person`**: Nondominium's foundational identity zome (`zome_person`) manages Person profiles, roles, private data, and capability-based sharing. The current PoC does not bridge this zome, but it is required for:
+> - **End-to-end testing**: Agent promotion and custody transfer workflows call `zome_person` for identity validation
+> - **Agent identification**: Mapping ERP users to Holochain Person profiles
+> - **Role-based access**: Governance operations require specific role levels (e.g., `AccountableAgent` for custody)
+>
+> See [Technical Specifications — Section 4.3](../erp_bridge_specifications.md#43-zome_person-functions-foundational-identity-layer--not-yet-bridged) for the full `zome_person` function reference.
 
 ---
 
