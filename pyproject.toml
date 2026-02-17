@@ -38,3 +38,7 @@ strict = true
 testpaths = ["tests"]
 markers = ["integration: requires live Holochain conductor + hc-http-gw"]
 addopts = "-m 'not integration'"
+
+[tool.setuptools.packages.find]
+include = ["bridge*"]
+exclude = ["docker*"]
