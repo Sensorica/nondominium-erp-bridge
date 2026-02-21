@@ -144,4 +144,4 @@ Contributions welcome! Please read the documentation before submitting PRs.
 
 ## License
 
-[License to be determined]
+This project is licensed under the [GNU Affero General Public License v3.0](LICENSE.md) ([full text](https://www.gnu.org/licenses/agpl-3.0.html)).

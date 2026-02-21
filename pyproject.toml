@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "nondominium-erp-bridge"
 version = "0.1.0"
 description = "Bridge between ERP systems and Nondominium via hc-http-gw"
+license = "AGPL-3.0-or-later"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
