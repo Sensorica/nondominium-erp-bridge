@@ -2,7 +2,7 @@
 
 > **Document Type**: PoC Implementation Guide
 > **Version**: 1.2
-> **Last Updated**: 2026-02-17
+> **Last Updated**: 2026-02-24
 > **Related Documents**:
 > - [Requirements](../../requirements/erp_bridge_requirements.md)
 > - [Technical Specifications](../erp_bridge_specifications.md)
@@ -241,9 +241,9 @@ print('Health check:', gw.health_check())
 
 | Limitation | Description | PoC Impact | Production Solution |
 |------------|-------------|------------|---------------------|
-| GET-only | No POST method support | Must base64-encode all payloads | Use Node.js bridge |
+| GET-only | No POST method support | Must base64-encode all payloads | Use Bun bridge |
 | No signals | Cannot receive push notifications | Must poll for updates | Implement webhooks |
-| URL length | Very large payloads may exceed URL limits | Keep data small | Use Node.js bridge |
+| URL length | Very large payloads may exceed URL limits | Keep data small | Use Bun bridge |
 | Single DNA | One DNA hash per gateway instance | Must know DNA hash | Config management |
 
 ### 8.2 PoC-Specific Limitations
@@ -294,11 +294,11 @@ def poll_for_changes(bridge, interval_seconds=60):
 1. **Document findings** from PoC implementation
 2. **Record demo video** showing full flow
 3. **Identify gaps** for production requirements
-4. **Plan Node.js bridge** development
+4. **Plan Bun bridge** development
 
 ### 9.2 Production Migration Path
 
-1. Deploy Node.js bridge alongside hc-http-gw
+1. Deploy Bun bridge alongside hc-http-gw
 2. Update ERPLibre module to call new bridge
 3. Implement webhook handler for signals
 4. Add proper zome call signing
@@ -311,7 +311,7 @@ def poll_for_changes(bridge, interval_seconds=60):
 | `zome_person` bridge module | High | Medium | Not started — Person profile creation is a prerequisite for custody transfers and agent promotion workflows |
 | Bidirectional sync | High | Medium | Not started |
 | Real-time signals | High | Medium | Not started |
-| ERPLibre Odoo module | Medium | High | PoC addon moved to [external repo](https://github.com/Sensorica/odoo-addons-nondominium) — currently calls hc-http-gw directly; decision made to refactor to call the Python bridge REST API |
+| ERPLibre Odoo module | Medium | High | PoC addon in [external repo](https://github.com/Sensorica/odoo-addons-nondominium) — calls hc-http-gw directly for PoC. In production, will call the Bun Protocol Bridge REST API. |
 | Multi-ERP support | Medium | High | Not started |
 | PPR dashboard | Low | Medium | Not started |
 

@@ -208,7 +208,7 @@ Summary: FR-1 (partial — mock ERP + Odoo addon in [external repo](https://gith
 | Multi-warehouse scenarios | Adds complexity beyond PoC needs |
 | Full PPR reputation dashboard | UI enhancement for production |
 | Multi-ERP support (Dolibarr, ERPNext) | PoC focuses on ERPLibre only |
-| Real-time signals/webhooks | Requires Node.js bridge (production) |
+| Real-time signals/webhooks | Requires Bun bridge (production) |
 
 ---
 
@@ -279,7 +279,7 @@ Demonstrate that inventory from two organizations running ERPLibre can be synchr
 
 **Goal**: Full-featured production deployment
 
-- **Protocol Bridge**: Node.js with `@holochain/client`
+- **Protocol Bridge**: Bun with `@holochain/client`
 - **Sync**: Bidirectional
 - **Real-time**: Yes (signals + webhooks)
 - **ERP**: ERPLibre + Dolibarr + ERPNext

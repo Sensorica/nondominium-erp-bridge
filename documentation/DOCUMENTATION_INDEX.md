@@ -1,7 +1,7 @@
 # Documentation Index
 
 > **Nondominium-ERP Bridge Project Documentation**
-> **Last Updated**: 2026-02-17
+> **Last Updated**: 2026-02-24
 
 ---
 
@@ -41,7 +41,7 @@ High-level requirements document covering:
 Detailed technical specifications covering:
 - Two-layer architecture (Protocol Bridge + ERP Module)
 - Component design and responsibilities
-- Protocol bridge options comparison (hc-http-gw vs Node.js vs Python)
+- Protocol bridge options comparison (hc-http-gw vs Bun vs Python)
 - Data models and mappings
 - API specifications
 - Security architecture
@@ -142,7 +142,8 @@ Practical guide for developers:
 | 1.2 | 2026-02-12 | Added implementation documentation layer (architecture, module reference, development guide). Trimmed PoC spec to remove code duplicating bridge/ modules. Updated all cross-references and counts. | - |
 | 1.3 | 2026-02-12 | Added governance bridge (`zome_gouvernance` models + gateway methods + `use_process` module). Added Docker/Odoo setup and `nondominium_connector` addon. Added end-to-end demo script. Updated all implementation docs to reflect 8 modules and 101 tests. |
 | 1.4 | 2026-02-17 | Added `zome_person` (foundational identity zome) coverage across all 8 documentation files. Documented Person/Agent identity model, role types, capability levels, cross-zome dependencies, and planned bridge module. Added FR-7 for Person/Agent identity management. | - |
-| 1.5 | 2026-02-17 | Documented `nondominium_connector` addon current state (models, views, permissions, sync flow). Recorded architectural decision: addon will be refactored to call Python bridge REST API instead of hc-http-gw directly. Fixed incorrect file names in erp_bridge_specifications.md. | - |
+| 1.5 | 2026-02-17 | Documented `nondominium_connector` addon current state (models, views, permissions, sync flow). Fixed incorrect file names in erp_bridge_specifications.md. | - |
+| 1.6 | 2026-02-24 | Clarified three-repo architecture and each repo's PoC vs production role. Established that Odoo addon's direct hc-http-gw calls are acceptable for PoC (self-contained repos). Corrected production plan: Odoo addon will call the **Bun Protocol Bridge** REST API (not a Python bridge REST API). Added Protocol Bridge spec cross-reference as production architecture example. Updated architecture.md, erp_bridge_specifications.md, hc_http_gw_poc_spec.md, development-guide.md, and this index. | - |
 
 ---
 
@@ -172,22 +173,32 @@ Historical documents preserved for reference:
 
 ### Architecture Summary
 
+**Three repositories, distinct roles:**
+
 ```
-ERP (Mock/Odoo) -> Python Bridge -> hc-http-gw -> Holochain Conductor -> Nondominium DHT
-                                                                          ├── zome_person       (foundational identity layer — not yet bridged)
-                                                                          ├── zome_resource      (bridged)
-                                                                          └── zome_gouvernance   (bridged)
+PoC (current):
+  nondominium              → Holochain hApp (3 zomes: person, resource, gouvernance)
+  nondominium-erp-bridge   → Python reference impl + test suite + dev tools
+  odoo-addons-nondominium  → Odoo addon calling hc-http-gw directly
+
+Production (Phase 2):
+  nondominium              → Same Holochain hApp
+  Bun Protocol Bridge  → @holochain/client, REST API, signals, webhooks (ERP-agnostic)
+  odoo-addons-nondominium  → Odoo addon calling Bun bridge REST API
+  (+ Tiki, Dolibarr, etc.) → Each ERP calls the same Bun bridge
 ```
 
 ### PoC vs Production
 
 | Aspect | PoC | Production |
 |--------|-----|------------|
-| Protocol Bridge | hc-http-gw (via Python client) | Node.js |
+| Protocol Bridge | hc-http-gw (HTTP GET) | Bun with `@holochain/client` (WebSocket) |
+| This repo's role | Python reference impl, Pydantic models, test suite, dev scripts | Evolves into or replaced by the Bun Protocol Bridge |
+| Odoo addon | Calls hc-http-gw directly (self-contained) | Calls Bun bridge REST API |
 | Dev Environment | Nix dev shell | Docker / Nix |
 | Sync Direction | ERP -> Nondominium | Bidirectional |
 | Real-time | Polling | Signals + Webhooks |
-| ERP Source | Mock ERP client + Odoo addon (PoC) | Multi-ERP (ERPLibre, etc.) |
+| ERP Support | ERPLibre only (mock + Odoo addon) | Multi-ERP (ERPLibre, Tiki, Dolibarr, etc.) |
 
 ---
 

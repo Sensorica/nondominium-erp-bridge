@@ -2,7 +2,7 @@
 
 > **Document Type**: Technical Specifications
 > **Version**: 1.0
-> **Last Updated**: 2026-02-17
+> **Last Updated**: 2026-02-24
 > **Related Documents**:
 > - [Requirements](../requirements/erp_bridge_requirements.md)
 > - [PoC Specification](poc/hc_http_gw_poc_spec.md)
@@ -49,7 +49,7 @@ The bridge architecture separates concerns into two distinct layers:
 │  │  PoC (hc-http-gw):                                                  │    │
 │  │  GET /[dna]/[app]/[zome]/[fn]?payload={base64}                      │    │
 │  │                                                                     │    │
-│  │  Production (Node.js):                                              │    │
+│  │  Production (Bun):                                              │    │
 │  │  POST /api/v1/zome/:zome/:fn    → Call any zome function            │    │
 │  │  GET  /api/v1/resources         → List resources                    │    │
 │  │  POST /api/v1/webhooks          → Register signal callbacks         │    │
@@ -148,7 +148,7 @@ nondominium_bridge/
         └── nondominium_widgets.js # Real-time update widgets
 ```
 
-> **Note**: A PoC Odoo addon (`nondominium_connector`) is maintained in a separate repository: **[odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)**. It currently calls hc-http-gw directly; the decision has been made to refactor it to call the Python bridge REST API instead, eliminating protocol duplication.
+> **Note**: A PoC Odoo addon (`nondominium_connector`) is maintained in a separate repository: **[odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)**. For the PoC, the addon calls hc-http-gw directly — this is acceptable given the PoC scope. In production (Phase 2), the addon will be refactored to call the **Bun Protocol Bridge** REST API instead, along with all other ERP modules. See also the [Protocol Bridge Specifications](https://github.com/Sensorica/nondominium/blob/main/documentation/specifications/protocol-bridge-specifications.md) for the comprehensive Bun Protocol Bridge architecture specification, including platform-specific examples (Tiki, Odoo).
 
 ---
 
@@ -156,7 +156,7 @@ nondominium_bridge/
 
 ### 3.1 Option Comparison Matrix
 
-| Criterion | hc-http-gw (PoC) | Node.js Bridge (Production) | Python Client (Future) |
+| Criterion | hc-http-gw (PoC) | Bun Bridge (Production) | Python Client (Future) |
 |-----------|------------------|------------------------------|------------------------|
 | **Ease of Implementation** | ⭐⭐⭐⭐⭐ High | ⭐⭐⭐⭐ Medium-High | ⭐⭐ Low |
 | **Signal Support** | ❌ No | ✅ Yes | ✅ Yes (if implemented) |
@@ -173,11 +173,11 @@ nondominium_bridge/
 
 See [PoC Implementation Guide](poc/hc_http_gw_poc_spec.md) for details.
 
-### 3.3 Option 2: Node.js Protocol Bridge (Production)
+### 3.3 Option 2: Bun Protocol Bridge (Production)
 
 **Architecture:**
 ```
-ERP Module (Python/PHP) <--HTTP/JSON--> Node.js Bridge <--WebSocket--> Holochain Conductor
+ERP Module (Python/PHP) <--HTTP/JSON--> Bun Bridge <--WebSocket--> Holochain Conductor
 ```
 
 **Key Features:**
@@ -187,12 +187,12 @@ ERP Module (Python/PHP) <--HTTP/JSON--> Node.js Bridge <--WebSocket--> Holochain
 - Multi-ERP support via generic REST API
 
 **Example Implementation:**
-```javascript
+```typescript
 // bridge/src/server.ts
 import { AppWebsocket } from '@holochain/client';
-import express from 'express';
+import { Hono } from 'hono';
 
-const app = express();
+const app = new Hono();
 const webhooks = new Map();  // URL -> event types
 
 // Initialize Holochain connection
@@ -202,21 +202,22 @@ const appWs = await AppWebsocket.connect({
 });
 
 // Generic zome call endpoint - works for ANY ERP
-app.post('/api/v1/zome/:zome/:fn', async (req, res) => {
-  const { zome, fn } = req.params;
+app.post('/api/v1/zome/:zome/:fn', async (c) => {
+  const { zome, fn } = c.req.param();
+  const body = await c.req.json();
   const result = await appWs.callZome({
     zome_name: zome,
     fn_name: fn,
-    payload: req.body
+    payload: body
   });
-  res.json(result);
+  return c.json(result);
 });
 
 // Webhook registration for signals
-app.post('/api/v1/webhooks', async (req, res) => {
-  const { url, events } = req.body;
+app.post('/api/v1/webhooks', async (c) => {
+  const { url, events } = await c.req.json();
   webhooks.set(url, events);
-  res.json({ status: 'registered' });
+  return c.json({ status: 'registered' });
 });
 
 // Subscribe to Holochain signals and forward to webhooks
@@ -232,7 +233,7 @@ appWs.on('signal', async (signal) => {
   }
 });
 
-app.listen(3000);
+export default { port: 3000, fetch: app.fetch };
 ```
 
 ### 3.4 Option 3: Python Client (Future)
@@ -440,7 +441,7 @@ curl "http://localhost:8888/uhC0k.../nondominium/zome_resource/create_resource_s
 curl "http://localhost:8888/uhC0k.../nondominium/zome_resource/get_all_economic_resources"
 ```
 
-### 5.2 Node.js Bridge API (Production)
+### 5.2 Bun Bridge API (Production)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -656,7 +657,7 @@ For organizations preferring managed infrastructure:
 
 ### 9.1 Migration Steps
 
-1. **Deploy Node.js bridge alongside hc-http-gw**
+1. **Deploy Bun bridge alongside hc-http-gw**
 2. **Update ERPLibre module to call bridge instead of gateway**
 3. **Implement webhook handler for Holochain signals**
 4. **Add proper zome call signing and capability management**
@@ -664,7 +665,7 @@ For organizations preferring managed infrastructure:
 
 ### 9.2 Feature Comparison
 
-| Feature | PoC (hc-http-gw) | Production (Node.js) |
+| Feature | PoC (hc-http-gw) | Production (Bun) |
 |---------|------------------|----------------------|
 | Sync direction | ERP → Nondominium | Bidirectional |
 | Real-time updates | Polling | Signals + Webhooks |

@@ -1,7 +1,7 @@
 # Development Guide
 
 > **Document Type**: Implementation Reference
-> **Last Updated**: 2026-02-17
+> **Last Updated**: 2026-02-24
 > **Related Documents**:
 > - [Architecture](architecture.md)
 > - [Module Reference](module-reference.md)
@@ -137,8 +137,10 @@ python scripts/demo_full_flow.py
 
 ### 5.4 Odoo / ERPLibre Addon
 
-The Odoo `nondominium_connector` addon has been moved to its own repository:
+The Odoo `nondominium_connector` addon is maintained in its own repository:
 **https://github.com/Sensorica/odoo-addons-nondominium**
+
+For the PoC, the addon calls hc-http-gw directly (self-contained, no dependency on this Python bridge). This repo's Pydantic models (`bridge/models.py`) serve as the reference for correct field names and types. In production (Phase 2), the addon will call the Bun Protocol Bridge REST API instead.
 
 See that repo for Docker Compose setup (Odoo 17 + PostgreSQL), addon installation, and development instructions.
 
@@ -219,7 +221,7 @@ The demo executes 5 steps:
 The Odoo `nondominium_connector` addon is maintained in a separate repository:
 **https://github.com/Sensorica/odoo-addons-nondominium**
 
-See that repo for development setup, Docker Compose instructions, and addon documentation.
+The addon and this bridge are **independent for the PoC** — no runtime dependency between them. When adding or modifying zome function calls in the addon, reference this repo's `bridge/models.py` for correct field names, types, and enum values. See that repo for development setup, Docker Compose instructions, and addon documentation.
 
 ### Adding New Model Fields
 

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Summary
 
-Python bridge connecting ERP systems (currently mocked ERPLibre) to **Nondominium** (a Holochain app for peer-to-peer resource sharing) via **hc-http-gw**. This is a Proof of Concept — one-way sync, single org, mock ERP only.
+**PoC Python reference implementation** for connecting ERP systems to **Nondominium** (a Holochain app for peer-to-peer resource sharing) via **hc-http-gw**. This is a Proof of Concept — one-way sync, single org, mock ERP only. This repo provides Pydantic models (source of truth for zome API field names/types), a typed gateway client, 101 tests, and development scripts. The Odoo addon ([odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)) is a separate, self-contained PoC that calls hc-http-gw directly. In production (Phase 2), this repo evolves into or is replaced by a **Bun Protocol Bridge** using `@holochain/client` and Hono that all ERPs will call via REST API.
 
 ## Development Setup
 

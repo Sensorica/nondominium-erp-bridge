@@ -1,7 +1,7 @@
 # Architecture
 
 > **Document Type**: Implementation Reference
-> **Last Updated**: 2026-02-17
+> **Last Updated**: 2026-02-24
 > **Related Documents**:
 > - [Requirements](../requirements/erp_bridge_requirements.md)
 > - [Technical Specifications](../specifications/erp_bridge_specifications.md)
@@ -11,7 +11,29 @@
 
 ## 1. System Overview
 
-The Nondominium-ERP Bridge is a Python application that syncs ERP inventory into Holochain's Nondominium app via the `hc-http-gw` HTTP gateway. Nondominium has three zomes, with `zome_person` as the foundational identity layer. The bridge currently covers `zome_resource` (inventory) and `zome_gouvernance` (commitments, events, PPRs), while `zome_person` (person profiles, roles, capabilities) is not yet bridged but is required for complete e2e workflows.
+The Nondominium-ERP Bridge is a **Python PoC reference implementation** that syncs ERP inventory into Holochain's Nondominium app via the `hc-http-gw` HTTP gateway. Nondominium has three zomes, with `zome_person` as the foundational identity layer. The bridge currently covers `zome_resource` (inventory) and `zome_gouvernance` (commitments, events, PPRs), while `zome_person` (person profiles, roles, capabilities) is not yet bridged but is required for complete e2e workflows.
+
+### Three-Repository Architecture
+
+The Nondominium ERP integration spans three repositories, each with a distinct role:
+
+| Repository | PoC Role | Production Role (Phase 2) |
+|------------|----------|---------------------------|
+| **[nondominium](https://github.com/Sensorica/nondominium)** | Holochain hApp (3 zomes) | Same |
+| **nondominium-erp-bridge** (this repo) | Python reference implementation: Pydantic models documenting the zome API surface, typed gateway client, test suite (101 tests), development scripts | Evolves into or is replaced by the **Bun Protocol Bridge** using `@holochain/client` (ERP-agnostic REST API with WebSocket, signals, webhooks) |
+| **[odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)** | Odoo addon calling hc-http-gw directly | Odoo addon calling the Bun Protocol Bridge REST API |
+
+**PoC approach**: Each repo is self-contained. The Odoo addon implements its own hc-http-gw calls, while this repo provides the comprehensive test suite, Pydantic models (source of truth for field names/types), and development tools. There is no runtime dependency between them.
+
+**Production approach**: The Bun Protocol Bridge becomes the single, ERP-agnostic intermediary. All ERP modules (Odoo, Tiki, Dolibarr, etc.) call its REST API. See the [Protocol Bridge Specifications](https://github.com/Sensorica/nondominium/blob/main/documentation/specifications/protocol-bridge-specifications.md) for the comprehensive Bun Protocol Bridge architecture specification, including platform-specific examples.
+
+```
+PoC (current):                          Production (Phase 2):
+
+Odoo ──→ hc-http-gw ──→ Holochain      Odoo  ──┐
+                                        Tiki  ──┼──→ Bun Bridge ──→ Holochain
+This repo: reference + tests + tools    Any   ──┘    (@holochain/client)
+```
 
 ```
 ┌──────────────────┐     ┌──────────────────────────────────────────┐      ┌───────────────┐
@@ -194,7 +216,7 @@ Mapping of requirements (from [erp_bridge_requirements.md](../requirements/erp_b
 
 ### Odoo / ERPLibre Addon (External Repo)
 
-The Odoo `nondominium_connector` addon has been moved to its own repository: **[odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)**. It provides Docker Compose setup (Odoo 17 + PostgreSQL), product sync from Odoo UI, and configuration views. The addon currently calls hc-http-gw directly; the planned refactoring to call the Python bridge REST API is tracked in that repo.
+The Odoo `nondominium_connector` addon has been moved to its own repository: **[odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)**. It provides Docker Compose setup (Odoo 17 + PostgreSQL), product sync from Odoo UI, and configuration views. For the PoC, the addon calls hc-http-gw directly — this is the intended PoC approach, keeping each repo self-contained. In production (Phase 2), the addon will call the **Bun Protocol Bridge** REST API instead (see [Migration Path](../specifications/erp_bridge_specifications.md#9-migration-path-poc-to-production)).
 
 ---
 
@@ -213,7 +235,7 @@ The Odoo `nondominium_connector` addon has been moved to its own repository: **[
 | **No bidirectional sync** | One-way ERP -> Nondominium only | Changes in Nondominium not reflected in ERP |
 | **ActionHash format unverified** | Serialization format from hc-http-gw needs verification with a running instance | Hashes may need format adjustments |
 | **Odoo addon not tested with live infrastructure** | Addon (in [external repo](https://github.com/Sensorica/odoo-addons-nondominium)) not tested with running Holochain conductor | End-to-end Odoo flow unverified |
-| **Odoo addon bypasses bridge** | The `nondominium_connector` addon talks directly to hc-http-gw, duplicating protocol logic from `gateway_client.py` | Will be refactored to call the Python bridge REST API instead (tracked in external repo) |
+| **Odoo addon has independent hc-http-gw implementation** | The `nondominium_connector` addon reimplements hc-http-gw protocol logic (URL construction, base64url encoding) independently from `gateway_client.py` | Acceptable for PoC — each repo is self-contained. In production (Phase 2), the addon will call the **Bun Protocol Bridge** REST API, eliminating protocol duplication. This Python repo's Pydantic models serve as the reference for field names and types. |
 
 ---
 
