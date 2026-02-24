@@ -20,7 +20,7 @@ The Nondominium ERP integration spans three repositories, each with a distinct r
 | Repository | PoC Role | Production Role (Phase 2) |
 |------------|----------|---------------------------|
 | **[nondominium](https://github.com/Sensorica/nondominium)** | Holochain hApp (3 zomes) | Same |
-| **nondominium-erp-bridge** (this repo) | Python reference implementation: Pydantic models documenting the zome API surface, typed gateway client, test suite (101 tests), development scripts | Evolves into or is replaced by the **Bun Protocol Bridge** using `@holochain/client` (ERP-agnostic REST API with WebSocket, signals, webhooks) |
+| **nondominium-erp-bridge** (this repo) | Python reference implementation: Pydantic models documenting the zome API surface, typed gateway client, test suite (117 tests: 106 unit + 11 integration), development scripts | Evolves into or is replaced by the **Bun Protocol Bridge** using `@holochain/client` (ERP-agnostic REST API with WebSocket, signals, webhooks) |
 | **[odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)** | Odoo addon calling hc-http-gw directly | Odoo addon calling the Bun Protocol Bridge REST API |
 
 **PoC approach**: Each repo is self-contained. The Odoo addon implements its own hc-http-gw calls, while this repo provides the comprehensive test suite, Pydantic models (source of truth for field names/types), and development tools. There is no runtime dependency between them.

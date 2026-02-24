@@ -1,7 +1,7 @@
 # Module Reference
 
 > **Document Type**: Implementation Reference
-> **Last Updated**: 2026-02-12
+> **Last Updated**: 2026-02-24
 > **Related Documents**:
 > - [Architecture](architecture.md)
 > - [Development Guide](development-guide.md)
@@ -136,7 +136,7 @@ Timestamp fields (e.g., `due_date`, `committed_at`, `event_time`) are modeled as
 
 ### Tests
 
-- `tests/test_models.py` — 13 tests covering resource model serialization round-trips, field name validation, enum values, and optional field handling.
+- `tests/test_models.py` — 18 tests covering resource model serialization round-trips, field name validation, enum values, optional field handling, and hash encoding round-trips.
 - `tests/test_governance_models.py` — 31 tests covering governance enums, integrity types, input/output serialization, and field name correctness.
 
 ---
@@ -243,6 +243,7 @@ All governance methods call `_call()` with `zome=self.ZOME_GOUVERNANCE`.
 
 - `tests/test_gateway_client.py` — 13 tests using `pytest-httpserver` (real HTTP server, no mocking of `requests` internals). Tests URL construction, base64url encoding, payload omission, error handling for resource methods.
 - `tests/test_governance_gateway.py` — 11 tests using `pytest-httpserver`. Tests governance URL construction, multi-zome routing, payload encoding for governance methods.
+- `tests/test_integration.py` — 11 integration tests (marked `@pytest.mark.integration`, require live Holochain conductor + hc-http-gw). Tests gateway connectivity, ResourceSpecification/EconomicResource CRUD, state transitions, full sync pipeline, idempotency, and error handling against a real conductor.
 
 ---
 
@@ -532,9 +533,11 @@ End-to-end demonstration of the complete bridge flow. Requires running conductor
 
 ## 11. Test Coverage Summary
 
+### Unit Tests (106 — no infrastructure needed)
+
 | Test File | Tests | Covers |
 |-----------|-------|--------|
-| `tests/test_models.py` | 13 | Resource model serialization, field names, enums, optional fields |
+| `tests/test_models.py` | 18 | Resource model serialization, field names, enums, optional fields, hash encoding round-trips |
 | `tests/test_gateway_client.py` | 13 | Resource URL construction, base64url encoding, payload omission, errors |
 | `tests/test_mapper.py` | 8 | Field mapping, tags, optionals, all sample products |
 | `tests/test_discovery.py` | 8 | Category discovery, spec-based lookup, availability, empty results |
@@ -542,6 +545,16 @@ End-to-end demonstration of the complete bridge flow. Requires running conductor
 | `tests/test_governance_models.py` | 31 | Governance enums, integrity types, input/output serialization, field names |
 | `tests/test_governance_gateway.py` | 11 | Governance URL construction, multi-zome routing, payload encoding |
 | `tests/test_use_process.py` | 6 | Use process orchestration, individual steps, error handling |
-| **Total** | **101** | |
+| **Unit subtotal** | **106** | |
 
-All tests run without infrastructure (no Holochain/hc-http-gw needed). Gateway tests use `pytest-httpserver` for real HTTP server mocking.
+### Integration Tests (11 — require live Holochain conductor + hc-http-gw)
+
+| Test File | Tests | Covers |
+|-----------|-------|--------|
+| `tests/test_integration.py` | 11 | Gateway connectivity, ResourceSpecification CRUD, EconomicResource CRUD, state transitions, full sync pipeline, idempotency, error handling |
+| **Integration subtotal** | **11** | |
+
+| | **Grand Total** | **117** |
+|--|-----------------|---------|
+
+Unit tests use `pytest-httpserver` for real HTTP server mocking (no Holochain needed). Integration tests are marked with `@pytest.mark.integration` and skipped by default; run with `pytest -m integration` (requires `HC_DNA_HASH` in `.env` and running conductor).

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Summary
 
-**PoC Python reference implementation** for connecting ERP systems to **Nondominium** (a Holochain app for peer-to-peer resource sharing) via **hc-http-gw**. This is a Proof of Concept — one-way sync, single org, mock ERP only. This repo provides Pydantic models (source of truth for zome API field names/types), a typed gateway client, 101 tests, and development scripts. The Odoo addon ([odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)) is a separate, self-contained PoC that calls hc-http-gw directly. In production (Phase 2), this repo evolves into or is replaced by a **Bun Protocol Bridge** using `@holochain/client` and Hono that all ERPs will call via REST API.
+**PoC Python reference implementation** for connecting ERP systems to **Nondominium** (a Holochain app for peer-to-peer resource sharing) via **hc-http-gw**. This is a Proof of Concept — one-way sync, single org, mock ERP only. This repo provides Pydantic models (source of truth for zome API field names/types), a typed gateway client, 117 tests (106 unit + 11 integration), and development scripts. The Odoo addon ([odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)) is a separate, self-contained PoC that calls hc-http-gw directly. In production (Phase 2), this repo evolves into or is replaced by a **Bun Protocol Bridge** using `@holochain/client` and Hono that all ERPs will call via REST API.
 
 ## Development Setup
 
@@ -19,16 +19,18 @@ uv pip install -e ".[dev]"
 ## Commands
 
 ```bash
-# Tests (101 total, no infrastructure needed)
-pytest                                    # all tests
-pytest tests/test_models.py               # Resource model serialization (13 tests)
+# Tests (117 total: 106 unit + 11 integration)
+pytest                                    # unit tests (106, no infrastructure needed)
+pytest -m integration                     # integration tests (11, needs live conductor)
+pytest tests/test_models.py               # Resource model serialization (18 tests)
 pytest tests/test_gateway_client.py       # Resource HTTP client (13 tests)
 pytest tests/test_mapper.py               # ERP→Nondominium mapping (8 tests)
 pytest tests/test_discovery.py            # Cross-org discovery (8 tests)
 pytest tests/test_sync.py                 # Sync pipeline + idempotency (11 tests)
-pytest tests/test_governance_models.py    # Governance model serialization (25 tests)
-pytest tests/test_governance_gateway.py   # Governance HTTP client (12 tests)
+pytest tests/test_governance_models.py    # Governance model serialization (31 tests)
+pytest tests/test_governance_gateway.py   # Governance HTTP client (11 tests)
 pytest tests/test_use_process.py          # Use process orchestration (6 tests)
+pytest tests/test_integration.py          # Live integration tests (11 tests, needs conductor)
 pytest -k "test_name"                     # single test by name
 
 # Linting & type checking

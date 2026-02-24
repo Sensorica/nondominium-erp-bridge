@@ -39,17 +39,23 @@ The `flake.nix` uses holonix `main-0.6` and provides:
 
 ## 3. Running Tests
 
-All 101 tests run without any infrastructure (no Holochain conductor or hc-http-gw needed).
+117 tests total: 106 unit tests (no infrastructure needed) + 11 integration tests (require live Holochain conductor + hc-http-gw).
 
 ```bash
-# All tests
+# Unit tests (106 — no infrastructure needed)
 pytest
 
 # With verbose output
 pytest -v
 
+# Integration tests (11 — require live conductor + HC_DNA_HASH in .env)
+pytest -m integration
+
+# All tests (unit + integration)
+pytest -m "" --override-ini="addopts="
+
 # Individual test files
-pytest tests/test_models.py               # 13 tests — Resource model serialization
+pytest tests/test_models.py               # 18 tests — Resource model serialization
 pytest tests/test_gateway_client.py       # 13 tests — Resource HTTP client (mocked server)
 pytest tests/test_mapper.py               # 8 tests  — ERP→Nondominium mapping
 pytest tests/test_discovery.py            # 8 tests  — Cross-org resource discovery
@@ -57,12 +63,13 @@ pytest tests/test_sync.py                 # 11 tests — Sync pipeline + idempot
 pytest tests/test_governance_models.py    # 31 tests — Governance model serialization
 pytest tests/test_governance_gateway.py   # 11 tests — Governance gateway methods
 pytest tests/test_use_process.py          # 6 tests  — Use process orchestration
+pytest tests/test_integration.py          # 11 tests — Live integration (needs conductor)
 
 # Single test by name
 pytest -k "test_name"
 ```
 
-Gateway, discovery, sync, and governance tests use `pytest-httpserver` which starts a real local HTTP server — no mocking of `requests` internals.
+Gateway, discovery, sync, and governance unit tests use `pytest-httpserver` which starts a real local HTTP server — no mocking of `requests` internals. Integration tests (`test_integration.py`) are marked with `@pytest.mark.integration` and require a running Holochain conductor + hc-http-gw with `HC_DNA_HASH` set in `.env`.
 
 ---
 

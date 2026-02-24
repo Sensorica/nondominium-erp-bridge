@@ -2,7 +2,7 @@
 
 > **Document Type**: High-Level Requirements
 > **Version**: 1.0
-> **Last Updated**: 2026-02-12
+> **Last Updated**: 2026-02-24
 > **Related Documents**:
 > - [Technical Specifications](../specifications/erp_bridge_specifications.md)
 > - [PoC Implementation Guide](../specifications/poc/hc_http_gw_poc_spec.md)

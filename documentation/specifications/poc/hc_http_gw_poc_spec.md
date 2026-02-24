@@ -194,13 +194,14 @@ See the [Development Guide](../../implementation/development-guide.md#55-running
 
 ### 7.1 Unit Tests
 
-The project includes 101 tests across 8 test files. See the [Development Guide](../../implementation/development-guide.md#3-running-tests) for test commands and the [Module Reference](../../implementation/module-reference.md#10-test-coverage-summary) for per-file coverage details.
+The project includes 117 tests across 9 test files (106 unit + 11 integration). See the [Development Guide](../../implementation/development-guide.md#3-running-tests) for test commands and the [Module Reference](../../implementation/module-reference.md#11-test-coverage-summary) for per-file coverage details.
 
 ### 7.2 Integration Test Checklist
 
 | Test Case | Expected Result | Pass/Fail |
 |-----------|-----------------|-----------|
-| Python tests pass | `pytest -v` reports 101 passed | |
+| Python unit tests pass | `pytest -v` reports 106 passed | |
+| Python integration tests pass | `pytest -m integration` reports 11 passed (needs live conductor) | |
 | hc-http-gw reachable | `curl http://localhost:8888/` returns response | |
 | Create ResourceSpecification | Returns `CreateResourceSpecificationOutput` with `spec_hash` | |
 | Create EconomicResource | Returns `CreateEconomicResourceOutput` with `resource_hash` | |

@@ -79,13 +79,13 @@ What is actually built — the living record of the current implementation:
 Per-module API reference for developers:
 - All 8 bridge modules with classes, methods, and types
 - 5 scripts with descriptions (including end-to-end demo)
-- Test coverage summary (101 tests across 8 files)
+- Test coverage summary (117 tests across 9 files: 106 unit + 11 integration)
 
 **[development-guide.md](implementation/development-guide.md)**
 
 Practical guide for developers:
 - Prerequisites and environment setup
-- Running tests (101 tests, no infrastructure needed)
+- Running tests (117 tests: 106 unit, 11 integration)
 - Linting and type checking
 - Running with live infrastructure
 - Docker / Odoo development
@@ -119,7 +119,7 @@ Practical guide for developers:
 │  │ (Specification)     │                                            │
 │  └──────────┬──────────┘                                            │
 │             │                                                       │
-│             │ Realized as                                            │
+│             │ Realized as                                           │
 │             v                                                       │
 │  ┌─────────────────────┐                                            │
 │  │  IMPLEMENTATION     │ <── WHAT IS actually built                 │
@@ -144,6 +144,7 @@ Practical guide for developers:
 | 1.4 | 2026-02-17 | Added `zome_person` (foundational identity zome) coverage across all 8 documentation files. Documented Person/Agent identity model, role types, capability levels, cross-zome dependencies, and planned bridge module. Added FR-7 for Person/Agent identity management. | - |
 | 1.5 | 2026-02-17 | Documented `nondominium_connector` addon current state (models, views, permissions, sync flow). Fixed incorrect file names in erp_bridge_specifications.md. | - |
 | 1.6 | 2026-02-24 | Clarified three-repo architecture and each repo's PoC vs production role. Established that Odoo addon's direct hc-http-gw calls are acceptable for PoC (self-contained repos). Corrected production plan: Odoo addon will call the **Bun Protocol Bridge** REST API (not a Python bridge REST API). Added Protocol Bridge spec cross-reference as production architecture example. Updated architecture.md, erp_bridge_specifications.md, hc_http_gw_poc_spec.md, development-guide.md, and this index. | - |
+| 1.7 | 2026-02-24 | Updated test counts across all docs: 101 → 117 (106 unit + 11 integration across 9 files). Added `test_integration.py` documentation to module-reference and development-guide. Updated per-file counts (test_models: 13→18, test_governance_models: 25→31). Updated module-reference.md Last Updated date. | - |
 
 ---
 
