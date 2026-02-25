@@ -299,11 +299,12 @@ def poll_for_changes(bridge, interval_seconds=60):
 
 ### 9.2 Production Migration Path
 
-1. Deploy Bun bridge alongside hc-http-gw
-2. Update ERPLibre module to call new bridge
-3. Implement webhook handler for signals
-4. Add proper zome call signing
-5. Deprecate hc-http-gw
+1. Develop Bun bridge in this repo (under `bun-bridge/`) alongside the frozen Python reference
+2. Deploy Bun bridge alongside hc-http-gw
+3. Update ERPLibre module (in [odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)) to call new bridge
+4. Implement webhook handler for signals
+5. Add proper zome call signing
+6. Deprecate hc-http-gw
 
 ### 9.3 Feature Additions
 

@@ -147,7 +147,7 @@ python scripts/demo_full_flow.py
 The Odoo `nondominium_connector` addon is maintained in its own repository:
 **https://github.com/Sensorica/odoo-addons-nondominium**
 
-For the PoC, the addon calls hc-http-gw directly (self-contained, no dependency on this Python bridge). This repo's Pydantic models (`bridge/models.py`) serve as the reference for correct field names and types. In production (Phase 2), the addon will call the Bun Protocol Bridge REST API instead.
+The Odoo addon repo owns the PoC demo — it calls hc-http-gw directly (self-contained, no dependency on this Python bridge). This repo's Pydantic models (`bridge/models.py`) serve as the reference for correct field names and types. In production (Phase 2), the addon will call the Bun Protocol Bridge REST API (hosted in this repo under `bun-bridge/`) instead.
 
 See that repo for Docker Compose setup (Odoo 17 + PostgreSQL), addon installation, and development instructions.
 

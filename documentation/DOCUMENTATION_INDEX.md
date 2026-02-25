@@ -145,6 +145,7 @@ Practical guide for developers:
 | 1.5 | 2026-02-17 | Documented `nondominium_connector` addon current state (models, views, permissions, sync flow). Fixed incorrect file names in erp_bridge_specifications.md. | - |
 | 1.6 | 2026-02-24 | Clarified three-repo architecture and each repo's PoC vs production role. Established that Odoo addon's direct hc-http-gw calls are acceptable for PoC (self-contained repos). Corrected production plan: Odoo addon will call the **Bun Protocol Bridge** REST API (not a Python bridge REST API). Added Protocol Bridge spec cross-reference as production architecture example. Updated architecture.md, erp_bridge_specifications.md, hc_http_gw_poc_spec.md, development-guide.md, and this index. | - |
 | 1.7 | 2026-02-24 | Updated test counts across all docs: 101 → 117 (106 unit + 11 integration across 9 files). Added `test_integration.py` documentation to module-reference and development-guide. Updated per-file counts (test_models: 13→18, test_governance_models: 25→31). Updated module-reference.md Last Updated date. | - |
+| 1.8 | 2026-02-24 | Clarified three-repo architecture: this repo evolves into the Bun Protocol Bridge (in `bun-bridge/`), Python code kept as frozen reference, odoo-addons-nondominium owns the PoC demo. Resolved "evolves into or is replaced by" ambiguity across all docs. | - |
 
 ---
 
@@ -180,11 +181,11 @@ Historical documents preserved for reference:
 PoC (current):
   nondominium              → Holochain hApp (3 zomes: person, resource, gouvernance)
   nondominium-erp-bridge   → Python reference impl + test suite + dev tools
-  odoo-addons-nondominium  → Odoo addon calling hc-http-gw directly
+  odoo-addons-nondominium  → Odoo addon calling hc-http-gw directly (owns PoC demo)
 
 Production (Phase 2):
   nondominium              → Same Holochain hApp
-  Bun Protocol Bridge  → @holochain/client, REST API, signals, webhooks (ERP-agnostic)
+  nondominium-erp-bridge   → Bun Protocol Bridge (bun-bridge/) + frozen Python reference
   odoo-addons-nondominium  → Odoo addon calling Bun bridge REST API
   (+ Tiki, Dolibarr, etc.) → Each ERP calls the same Bun bridge
 ```
@@ -194,7 +195,7 @@ Production (Phase 2):
 | Aspect | PoC | Production |
 |--------|-----|------------|
 | Protocol Bridge | hc-http-gw (HTTP GET) | Bun with `@holochain/client` (WebSocket) |
-| This repo's role | Python reference impl, Pydantic models, test suite, dev scripts | Evolves into or replaced by the Bun Protocol Bridge |
+| This repo's role | Python reference impl, Pydantic models, test suite, dev scripts | Evolves into the Bun Protocol Bridge (in `bun-bridge/`); Python code kept as frozen reference |
 | Odoo addon | Calls hc-http-gw directly (self-contained) | Calls Bun bridge REST API |
 | Dev Environment | Nix dev shell | Docker / Nix |
 | Sync Direction | ERP -> Nondominium | Bidirectional |

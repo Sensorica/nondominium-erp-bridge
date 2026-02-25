@@ -20,7 +20,7 @@ The Nondominium ERP integration spans three repositories, each with a distinct r
 | Repository | PoC Role | Production Role (Phase 2) |
 |------------|----------|---------------------------|
 | **[nondominium](https://github.com/Sensorica/nondominium)** | Holochain hApp (3 zomes) | Same |
-| **nondominium-erp-bridge** (this repo) | Python reference implementation: Pydantic models documenting the zome API surface, typed gateway client, test suite (117 tests: 106 unit + 11 integration), development scripts | Evolves into or is replaced by the **Bun Protocol Bridge** using `@holochain/client` (ERP-agnostic REST API with WebSocket, signals, webhooks) |
+| **nondominium-erp-bridge** (this repo) | Python reference implementation: Pydantic models documenting the zome API surface, typed gateway client, test suite (117 tests: 106 unit + 11 integration), development scripts | Evolves into the **Bun Protocol Bridge** (in `bun-bridge/`) using `@holochain/client` (ERP-agnostic REST API with WebSocket, signals, webhooks). Python code remains as frozen reference. |
 | **[odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)** | Odoo addon calling hc-http-gw directly | Odoo addon calling the Bun Protocol Bridge REST API |
 
 **PoC approach**: Each repo is self-contained. The Odoo addon implements its own hc-http-gw calls, while this repo provides the comprehensive test suite, Pydantic models (source of truth for field names/types), and development tools. There is no runtime dependency between them.
@@ -31,8 +31,9 @@ The Nondominium ERP integration spans three repositories, each with a distinct r
 PoC (current):                          Production (Phase 2):
 
 Odoo ──→ hc-http-gw ──→ Holochain      Odoo  ──┐
-                                        Tiki  ──┼──→ Bun Bridge ──→ Holochain
-This repo: reference + tests + tools    Any   ──┘    (@holochain/client)
+(odoo-addons-nondominium owns PoC)      Tiki  ──┼──→ Bun Bridge ──→ Holochain
+                                        Any   ──┘    (this repo: bun-bridge/)
+This repo: reference + tests + tools    Python code: frozen reference
 ```
 
 ```
@@ -216,7 +217,7 @@ Mapping of requirements (from [erp_bridge_requirements.md](../requirements/erp_b
 
 ### Odoo / ERPLibre Addon (External Repo)
 
-The Odoo `nondominium_connector` addon has been moved to its own repository: **[odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)**. It provides Docker Compose setup (Odoo 17 + PostgreSQL), product sync from Odoo UI, and configuration views. For the PoC, the addon calls hc-http-gw directly — this is the intended PoC approach, keeping each repo self-contained. In production (Phase 2), the addon will call the **Bun Protocol Bridge** REST API instead (see [Migration Path](../specifications/erp_bridge_specifications.md#9-migration-path-poc-to-production)).
+The Odoo `nondominium_connector` addon has been moved to its own repository: **[odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)**. It provides Docker Compose setup (Odoo 17 + PostgreSQL), product sync from Odoo UI, and configuration views. The Odoo addon repo owns the PoC demo — it calls hc-http-gw directly, keeping each repo self-contained. In production (Phase 2), the addon will call the **Bun Protocol Bridge** REST API (hosted in this repo under `bun-bridge/`) instead (see [Migration Path](../specifications/erp_bridge_specifications.md#9-migration-path-poc-to-production)).
 
 ---
 

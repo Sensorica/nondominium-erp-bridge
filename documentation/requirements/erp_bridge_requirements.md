@@ -274,6 +274,8 @@ Demonstrate that inventory from two organizations running ERPLibre can be synchr
 - **Sync**: Unidirectional (ERP → Nondominium)
 - **Real-time**: No (periodic polling)
 - **ERP**: ERPLibre only
+- **PoC demo**: Owned by [odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium) (calls hc-http-gw directly)
+- **This repo**: Provides frozen Python reference (Pydantic models, test suite, dev tools)
 
 ### 10.2 Phase 2: Production Bridge
 
@@ -283,6 +285,8 @@ Demonstrate that inventory from two organizations running ERPLibre can be synchr
 - **Sync**: Bidirectional
 - **Real-time**: Yes (signals + webhooks)
 - **ERP**: ERPLibre + Dolibarr + ERPNext
+- **This repo**: Hosts the Bun Protocol Bridge (in `bun-bridge/`); Python code remains as frozen reference
+- **Odoo addon**: Refactored to call the Bun bridge REST API (in [odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium))
 
 ### 10.3 Phase 3: Advanced Features
 

@@ -148,7 +148,7 @@ nondominium_bridge/
         └── nondominium_widgets.js # Real-time update widgets
 ```
 
-> **Note**: A PoC Odoo addon (`nondominium_connector`) is maintained in a separate repository: **[odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)**. For the PoC, the addon calls hc-http-gw directly — this is acceptable given the PoC scope. In production (Phase 2), the addon will be refactored to call the **Bun Protocol Bridge** REST API instead, along with all other ERP modules. See also the [Protocol Bridge Specifications](https://github.com/Sensorica/nondominium/blob/main/documentation/specifications/protocol-bridge-specifications.md) for the comprehensive Bun Protocol Bridge architecture specification, including platform-specific examples (Tiki, Odoo).
+> **Note**: A PoC Odoo addon (`nondominium_connector`) is maintained in a separate repository: **[odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)**. The Odoo addon repo owns the PoC demo — it calls hc-http-gw directly, which is the intended PoC approach. In production (Phase 2), the addon will be refactored to call the **Bun Protocol Bridge** REST API (developed in this repo under `bun-bridge/`) instead, along with all other ERP modules. See also the [Protocol Bridge Specifications](https://github.com/Sensorica/nondominium/blob/main/documentation/specifications/protocol-bridge-specifications.md) for the comprehensive Bun Protocol Bridge architecture specification, including platform-specific examples (Tiki, Odoo).
 
 ---
 
@@ -657,11 +657,12 @@ For organizations preferring managed infrastructure:
 
 ### 9.1 Migration Steps
 
-1. **Deploy Bun bridge alongside hc-http-gw**
-2. **Update ERPLibre module to call bridge instead of gateway**
-3. **Implement webhook handler for Holochain signals**
-4. **Add proper zome call signing and capability management**
-5. **Deprecate hc-http-gw once bridge is stable**
+1. **Develop Bun bridge in this repo** (under `bun-bridge/`) alongside the frozen Python reference
+2. **Deploy Bun bridge alongside hc-http-gw**
+3. **Update ERPLibre module** (in [odoo-addons-nondominium](https://github.com/Sensorica/odoo-addons-nondominium)) **to call bridge instead of gateway**
+4. **Implement webhook handler for Holochain signals**
+5. **Add proper zome call signing and capability management**
+6. **Deprecate hc-http-gw once bridge is stable**
 
 ### 9.2 Feature Comparison
 
